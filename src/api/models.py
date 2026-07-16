@@ -94,7 +94,6 @@ class Appointment(db.Model):
 
     client = db.relationship("Client", backref="appointments")
     doctor = db.relationship("Doctor", backref="appointments")
-
     def serialize(self):
         return {
             "id": self.id,
