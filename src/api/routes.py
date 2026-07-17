@@ -4,6 +4,7 @@ from api.utils import generate_sitemap, APIException
 from api.notification_queue import NotificationQueue
 from flask_cors import CORS
 from datetime import datetime, timezone
+from api.models import db, Client, Doctor, Appointment
 
 api = Blueprint('api', __name__)
 
@@ -17,6 +18,49 @@ def handle_hello():
     }
     return jsonify(response_body), 200
 
+@api.route('/signup', methods=['POST'])
+def signup():
+
+    body = request.get_json()
+    if body is None:
+        return jsonify({"error": "Request body is required"}), 400
+
+    name = body.get("name")
+    email = body.get("email")
+    password = body.get("password")
+    phone_number = body.get("phone_number")
+    address = body.get("address")
+
+    if name is None:
+        return jsonify({"error": "name is required"}), 400
+    if email is None:
+        return jsonify({"error": "email is required"}), 400
+    if password is None:
+        return jsonify({"error": "password is required"}), 400
+    if phone_number is None:
+        return jsonify({"error": "phone_number is required"}), 400
+    if address is None:
+        return jsonify({"error": "address is required"}), 400
+
+    email_existente = Client.query.filter_by(email=email).first()
+    if email_existente is not None:
+        return jsonify({"error": "Email already registered"}), 400
+
+    nuevo_cliente = Client(
+        name=name,
+        email=email,
+        password=password,
+        phone_number=phone_number,
+        address=address,
+    )
+
+    db.session.add(nuevo_cliente)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Cliente registrado",
+        "client": nuevo_cliente.serialize(),
+    }), 201
 
 @api.route('/notifications/appointment-created', methods=['POST'])
 def notify_appointment_created():
