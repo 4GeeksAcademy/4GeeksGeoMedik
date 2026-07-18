@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, url_for, Blueprint
-from api.models import Client, Doctor, Appointment
+from api.models import Client, Doctor, Appointment, MedicalProfile, db
 from api.utils import generate_sitemap, APIException
 from api.notification_queue import NotificationQueue
 from flask_cors import CORS
@@ -16,6 +16,49 @@ def handle_hello():
         "message": "Hello! I'm a message that came from the backend, check the network tab on the google inspector and you will see the GET request"
     }
     return jsonify(response_body), 200
+
+
+@api.route('/signup/medic-profile', methods=['POST'])
+def create_medic_profile():
+    body = request.get_json()
+    if body is None:
+        return jsonify({"error": "Request body is required"}), 400
+
+    client_id = body.get("client_id")
+    altura = body.get("altura")
+    peso = body.get("peso")
+
+    if client_id is None:
+        return jsonify({"error": "client_id is required"}), 400
+
+    if altura is None:
+        return jsonify({"error": "altura is required"}), 400
+
+    if peso is None:
+        return jsonify({"error": "peso is required"}), 400
+
+    client = Client.query.get(client_id)
+    if client is None:
+        return jsonify({"error": "Client not found"}), 404
+
+    existing_profile = MedicalProfile.query.filter_by(client_id=client_id).first()
+    if existing_profile is not None:
+        return jsonify({"error": "Medical profile already exists for this client"}), 400
+
+    new_profile = MedicalProfile(
+        client_id=client_id,
+        altura=altura,
+        peso=peso,
+        discapacidad=body.get("discapacidad"),
+        enfermedades=body.get("enfermedades"),
+        alergias=body.get("alergias"),
+        medicamentos=body.get("medicamentos"),
+    )
+
+    db.session.add(new_profile)
+    db.session.commit()
+
+    return jsonify(new_profile.serialize()), 201
 
 
 @api.route('/notifications/appointment-created', methods=['POST'])

@@ -81,6 +81,32 @@ class Availability(db.Model):
         }
 
 
+class MedicalProfile(db.Model):
+    __tablename__ = "medical_profile"
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False, unique=True)
+    altura = db.Column(db.Integer, nullable=False)
+    peso = db.Column(db.Integer, nullable=False)
+    discapacidad = db.Column(db.String(255), nullable=True)
+    enfermedades = db.Column(db.String(500), nullable=True)
+    alergias = db.Column(db.String(500), nullable=True)
+    medicamentos = db.Column(db.String(500), nullable=True)
+
+    client = db.relationship("Client", backref="medical_profile")
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "altura": self.altura,
+            "peso": self.peso,
+            "discapacidad": self.discapacidad,
+            "enfermedades": self.enfermedades,
+            "alergias": self.alergias,
+            "medicamentos": self.medicamentos,
+        }
+
+
 class Appointment(db.Model):
     __tablename__ = "appointment"
     id = db.Column(db.Integer, primary_key=True)
