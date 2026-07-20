@@ -21,113 +21,6 @@ def handle_hello():
     }
     return jsonify(response_body), 200
 
-@api.route('/signup-doctor', methods=['POST'])
-def signup_doctor():
-
-    body = request.get_json()
-    if body is None:
-        return jsonify({"error": "Request body is required"}), 400
-
-    name = body.get("name")
-    email = body.get("email")
-    password = body.get("password")
-    phone_number = body.get("phone_number")
-    address = body.get("address")
-    specialty = body.get("specialty")
-    credentials = body.get("credentials")
-    id_number = body.get("id_number")
-
-    if name is None:
-        return jsonify({"error": "name is required"}), 400
-    if email is None:
-        return jsonify({"error": "email is required"}), 400
-    if password is None:
-        return jsonify({"error": "password is required"}), 400
-    if phone_number is None:
-        return jsonify({"error": "phone_number is required"}), 400
-    if address is None:
-        return jsonify({"error": "address is required"}), 400
-    if specialty is None:
-        return jsonify({"error": "specialty is required"}), 400
-    if credentials is None:
-        return jsonify({"error": "credentials is required"}), 400
-    if id_number is None:
-        return jsonify({"error": "id_number is required"}), 4
-
-    email_existente = Doctor.query.filter_by(email=email).first()
-    if email_existente is not None:
-        return jsonify({"error": "Email already registered"}), 400
-
-    cedula_existente = Doctor.query.filter_by(id_number=id_number).first()
-    if cedula_existente is not None:
-        return jsonify({"error": "id_number already registered"}), 400
-
-    nuevo_doctor = Doctor(
-        name=name,
-        email=email,
-        password=password,
-        phone_number=phone_number,
-        address=address,
-        specialty=specialty,
-        credentials=credentials,
-        id_number=id_number,
-        picture_url=body.get("picture_url"),
-    )
-
-    db.session.add(nuevo_doctor)
-    db.session.commit()
-
-    return jsonify({
-        "message": "Doctor registrado",
-        "doctor": nuevo_doctor.serialize(),
-    }), 201
-
-
-@api.route('/signup', methods=['POST'])
-def signup():
-
-    body = request.get_json()
-    if body is None:
-        return jsonify({"error": "Request body is required"}), 400
-
-    name = body.get("name")
-    email = body.get("email")
-    password = body.get("password")
-    phone_number = body.get("phone_number")
-    address = body.get("address")
-
-    if name is None:
-        return jsonify({"error": "name is required"}), 400
-    if email is None:
-        return jsonify({"error": "email is required"}), 400
-    if password is None:
-        return jsonify({"error": "password is required"}), 400
-    if phone_number is None:
-        return jsonify({"error": "phone_number is required"}), 400
-    if address is None:
-        return jsonify({"error": "address is required"}), 400
-
-    email_existente = Client.query.filter_by(email=email).first()
-    if email_existente is not None:
-        return jsonify({"error": "Email already registered"}), 400
-
-    nuevo_cliente = Client(
-        name=name,
-        email=email,
-        password=password,
-        phone_number=phone_number,
-        address=address,
-    )
-
-    db.session.add(nuevo_cliente)
-    db.session.commit()
-
-    return jsonify({
-        "message": "Cliente registrado",
-        "client": nuevo_cliente.serialize(),
-    }), 201
-
-
 @api.route("/signup/doctor", methods=["POST"])
 def signup_doctor():
 
@@ -175,45 +68,6 @@ def signup_doctor():
     }), 201
 
 
-@api.route("/login/doctor", methods=["POST"])
-def login_doctor():
-
-    body = request.get_json()
-
-    if body is None:
-        return jsonify({
-            "message": "Body is required"
-        }), 400
-
-    email = body.get("email")
-    password = body.get("password")
-
-    if not email or not password:
-        return jsonify({
-            "message": "Email and password are required"
-        }), 400
-
-    doctor = Doctor.query.filter_by(email=email).first()
-
-    if doctor is None:
-        return jsonify({
-            "message": "Doctor not found"
-        }), 404
-
-    if not check_password_hash(doctor.password, password):
-        return jsonify({
-            "message": "Invalid password"
-        }), 401
-
-    access_token = create_access_token(identity=str(doctor.id))
-
-    return jsonify({
-        "message": "Login successful",
-        "token": access_token,
-        "doctor": doctor.serialize()
-    }), 200
-
-
 @api.route("/signup/client", methods=["POST"])
 def signup_client():
 
@@ -253,6 +107,46 @@ def signup_client():
     return jsonify({
         "message": "Client created successfully"
     }), 201
+
+
+
+@api.route("/login/doctor", methods=["POST"])
+def login_doctor():
+
+    body = request.get_json()
+
+    if body is None:
+        return jsonify({
+            "message": "Body is required"
+        }), 400
+
+    email = body.get("email")
+    password = body.get("password")
+
+    if not email or not password:
+        return jsonify({
+            "message": "Email and password are required"
+        }), 400
+
+    doctor = Doctor.query.filter_by(email=email).first()
+
+    if doctor is None:
+        return jsonify({
+            "message": "Doctor not found"
+        }), 404
+
+    if not check_password_hash(doctor.password, password):
+        return jsonify({
+            "message": "Invalid password"
+        }), 401
+
+    access_token = create_access_token(identity=str(doctor.id))
+
+    return jsonify({
+        "message": "Login successful",
+        "token": access_token,
+        "doctor": doctor.serialize()
+    }), 200
 
 
 @api.route("/login/client", methods=["POST"])
