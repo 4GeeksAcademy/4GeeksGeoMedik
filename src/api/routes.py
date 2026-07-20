@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, url_for, Blueprint
-from api.models import Client, Doctor, Appointment
 from api.utils import generate_sitemap, APIException
 from api.notification_queue import NotificationQueue
 from flask_cors import CORS
@@ -19,7 +18,7 @@ def handle_hello():
     return jsonify(response_body), 200
 
 @api.route('/signup', methods=['POST'])
-def signup():
+def signup_cliente():
 
     body = request.get_json()
     if body is None:
@@ -61,6 +60,64 @@ def signup():
         "message": "Cliente registrado",
         "client": nuevo_cliente.serialize(),
     }), 201
+
+
+def signup_doctor():
+
+    body = request.get_json()
+    if body is None:
+        return jsonify({"error": "Request body is required"}), 400
+
+    name = body.get("name")
+    email = body.get("email")
+    password = body.get("password")
+    phone_number = body.get("phone_number")
+    address = body.get("address")
+    specialty = body.get("specialty")
+    credentials = body.get("credentials")
+    id_number = body.get("id_number")
+
+    if name is None:
+        return jsonify({"error": "name is required"}), 400
+    if email is None:
+        return jsonify({"error": "email is required"}), 400
+    if password is None:
+        return jsonify({"error": "password is required"}), 400
+    if phone_number is None:
+        return jsonify({"error": "phone_number is required"}), 400
+    if address is None:
+        return jsonify({"error": "address is required"}), 400
+    if specialty is None:
+        return jsonify({"error": "specialty is required"}), 400
+    if credentials is None:
+        return jsonify({"error": "credentials is required"}), 400
+    if id_number is None:
+        return jsonify({"error": "id_number is required"}), 400
+
+    email_existente = Doctor.query.filter_by(email=email).first()
+    if email_existente is not None:
+        return jsonify({"error": "Email already registered"}), 400
+
+    nuevo_doctor = Doctor(
+        name=name,
+        email=email,
+        password=password,
+        phone_number=phone_number,
+        address=address,
+        specialty=specialty,
+        credentials=credentials,
+        id_number=id_number,
+    )
+
+    db.session.add(nuevo_doctor)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Doctor registrado",
+        "doctor": nuevo_doctor.serialize(),
+        "role": "doctor",
+    }), 201
+
 
 @api.route('/notifications/appointment-created', methods=['POST'])
 def notify_appointment_created():
