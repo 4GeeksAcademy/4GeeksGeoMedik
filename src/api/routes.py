@@ -3,7 +3,7 @@ from api.models import db, Client, Doctor, Appointment, Availability
 from api.utils import APIException
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
 
 
@@ -101,7 +101,7 @@ def login_client():
     if not check_password_hash(client.password, password):
         return jsonify({"message": "Invalid password"}), 401
 
-    access_token = create_access_token(identity=str(client.id))
+    access_token = create_access_token(identity=str(client.id), additional_claims={"role": "client"})
 
     return jsonify({
         "message": "Login successful",
@@ -129,7 +129,7 @@ def login_doctor():
     if not check_password_hash(doctor.password, password):
         return jsonify({"message": "Invalid password"}), 401
 
-    access_token = create_access_token(identity=str(doctor.id))
+    access_token = create_access_token(identity=str(doctor.id), additional_claims={"role": "doctor"})
 
     return jsonify({
         "message": "Login successful",
@@ -150,6 +150,8 @@ def create_appointment():
             return jsonify({"message": f"{field} is required"}), 400
 
     client_id = int(get_jwt_identity())
+    if get_jwt()["role"] != "client":
+        return jsonify({"message": "Only clients can create appointments"}), 403
     client = Client.query.get(client_id)
     if client is None:
         return jsonify({"message": "Client not found"}), 404
@@ -208,24 +210,51 @@ def create_appointment():
 @jwt_required()
 def get_appointments():
     user_id = int(get_jwt_identity())
+    role = get_jwt()["role"]
 
-    client = Client.query.get(user_id)
-    if client:
-        appointments = Appointment.query.filter_by(client_id=user_id).order_by(Appointment.date_time.desc()).all()
-        return jsonify({
-            "message": "Appointments retrieved",
-            "appointments": [a.serialize() for a in appointments]
-        }), 200
+    query = Appointment.query
 
-    doctor = Doctor.query.get(user_id)
-    if doctor:
-        appointments = Appointment.query.filter_by(doctor_id=user_id).order_by(Appointment.date_time.desc()).all()
-        return jsonify({
-            "message": "Appointments retrieved",
-            "appointments": [a.serialize() for a in appointments]
-        }), 200
+    if role == "client":
+        query = query.filter_by(client_id=user_id)
+    elif role == "doctor":
+        query = query.filter_by(doctor_id=user_id)
+    else:
+        return jsonify({"message": "Invalid role"}), 403
 
-    return jsonify({"message": "User not found"}), 404
+    estado = request.args.get("estado")
+    if estado:
+        query = query.filter(Appointment.status == estado)
+
+    fecha_desde = request.args.get("fecha_desde")
+    if fecha_desde:
+        try:
+            dt_desde = datetime.fromisoformat(fecha_desde)
+            query = query.filter(Appointment.date_time >= dt_desde)
+        except:
+            return jsonify({"message": "Invalid fecha_desde format. Use ISO format"}), 400
+
+    fecha_hasta = request.args.get("fecha_hasta")
+    if fecha_hasta:
+        try:
+            dt_hasta = datetime.fromisoformat(fecha_hasta)
+            query = query.filter(Appointment.date_time <= dt_hasta)
+        except:
+            return jsonify({"message": "Invalid fecha_hasta format. Use ISO format"}), 400
+
+    appointments = query.order_by(Appointment.date_time.desc()).all()
+
+    result = []
+    for apt in appointments:
+        data = apt.serialize()
+        if role == "client":
+            doctor = Doctor.query.get(apt.doctor_id)
+            data["doctor"] = {"name": doctor.name, "email": doctor.email} if doctor else None
+        elif role == "doctor":
+            client = Client.query.get(apt.client_id)
+            data["client"] = {"name": client.name, "email": client.email} if client else None
+        result.append(data)
+
+    return jsonify(result), 200
 
 
 @api.route("/appointments/<int:id>/status", methods=["PUT"])
@@ -294,8 +323,6 @@ def update_appointment(id):
     if user_id != appointment.client_id and user_id != appointment.doctor_id:
         return jsonify({"message": "You do not own this appointment"}), 403
 
-@api.route("/notifications/appointment-created", methods=["POST"])
-def notify_appointment_created():
     body = request.get_json()
     if body is None:
         return jsonify({"message": "Body is required"}), 400
@@ -338,15 +365,14 @@ def notify_appointment_created():
         if new_status not in ["agendada", "confirmada", "cancelada", "completada"]:
             return jsonify({"message": "Invalid status"}), 400
 
-        doctor = Doctor.query.get(user_id)
-        if doctor and appointment.doctor_id == doctor.id:
+        if get_jwt()["role"] == "doctor" and user_id == appointment.doctor_id:
+            appointment.status = new_status
+            updated = True
+        elif get_jwt()["role"] == "client" and new_status == "cancelada":
             appointment.status = new_status
             updated = True
         else:
-            if new_status != "cancelada":
-                return jsonify({"message": "Clients can only cancel appointments"}), 403
-            appointment.status = new_status
-            updated = True
+            return jsonify({"message": "You are not authorized to change this appointment status"}), 403
 
     if not updated:
         return jsonify({"message": "No changes provided. Send status and/or date_time"}), 400
@@ -361,6 +387,14 @@ def notify_appointment_created():
         "message": "Appointment updated",
         "appointment": appointment.serialize()
     }), 200
+
+
+@api.route("/notifications/appointment-created", methods=["POST"])
+def notify_appointment_created():
+    body = request.get_json()
+    if body is None:
+        return jsonify({"message": "Body is required"}), 400
+
     appointment_id = body.get("appointment_id")
     if appointment_id is None:
         return jsonify({"message": "appointment_id is required"}), 400
