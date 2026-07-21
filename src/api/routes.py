@@ -296,8 +296,6 @@ def update_appointment(id):
     if user_id != appointment.client_id and user_id != appointment.doctor_id:
         return jsonify({"message": "You do not own this appointment"}), 403
 
-@api.route("/notifications/appointment-created", methods=["POST"])
-def notify_appointment_created():
     body = request.get_json()
     if body is None:
         return jsonify({"message": "Body is required"}), 400
@@ -340,15 +338,14 @@ def notify_appointment_created():
         if new_status not in ["agendada", "confirmada", "cancelada", "completada"]:
             return jsonify({"message": "Invalid status"}), 400
 
-        doctor = Doctor.query.get(user_id)
-        if doctor and appointment.doctor_id == doctor.id:
+        if get_jwt()["role"] == "doctor" and user_id == appointment.doctor_id:
+            appointment.status = new_status
+            updated = True
+        elif get_jwt()["role"] == "client" and new_status == "cancelada":
             appointment.status = new_status
             updated = True
         else:
-            if new_status != "cancelada":
-                return jsonify({"message": "Clients can only cancel appointments"}), 403
-            appointment.status = new_status
-            updated = True
+            return jsonify({"message": "You are not authorized to change this appointment status"}), 403
 
     if not updated:
         return jsonify({"message": "No changes provided. Send status and/or date_time"}), 400
@@ -363,6 +360,14 @@ def notify_appointment_created():
         "message": "Appointment updated",
         "appointment": appointment.serialize()
     }), 200
+
+
+@api.route("/notifications/appointment-created", methods=["POST"])
+def notify_appointment_created():
+    body = request.get_json()
+    if body is None:
+        return jsonify({"message": "Body is required"}), 400
+
     appointment_id = body.get("appointment_id")
     if appointment_id is None:
         return jsonify({"message": "appointment_id is required"}), 400
