@@ -401,3 +401,21 @@ def create_appointment():
         "message": "Appointment created successfully",
         "appointment": new_appointment.serialize()
     }), 201
+
+
+@api.route("/doctors/filter", methods=["GET"])
+def filter_doctors_by_specialty():
+    specialty = request.args.get("especialidad")
+    
+    if not specialty:
+        return jsonify({"message": "especialidad parameter is required"}), 400
+
+    doctors = Doctor.query.filter(Doctor.specialty.ilike(f"%{specialty}%"), Doctor.is_active == True).all()
+    
+    if not doctors:
+        return jsonify({"message": "No doctors found with that specialty"}), 404
+
+    return jsonify({
+        "message": "Doctors filtered by specialty",
+        "doctors": [doctor.serialize() for doctor in doctors]
+    }), 200
