@@ -17,6 +17,7 @@ def handle_hello():
     }
     return jsonify(response_body), 200
 
+
 @api.route('/signup', methods=['POST'])
 def signup_cliente():
 
@@ -62,6 +63,7 @@ def signup_cliente():
     }), 201
 
 
+@api.route('/signup/doctor', methods=['POST'])
 def signup_doctor():
 
     body = request.get_json()
@@ -210,7 +212,7 @@ def notify_appointment_cancelled():
     )
 
     return jsonify({
-        "message": "Notificaciones de cancelación enviadas",
+        "message": "Notificaciones de cancelacion enviadas",
         "notifications": [notificacion_cliente, notificacion_doctor],
     }), 200
 
