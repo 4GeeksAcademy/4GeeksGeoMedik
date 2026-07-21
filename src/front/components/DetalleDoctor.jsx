@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ModalConfirmacion } from "./ModalConfirmacion";
 
 const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
@@ -14,6 +15,10 @@ export const DetalleDoctor = () => {
   const [diaSel, setDiaSel] = useState(null);
   const [horaSel, setHoraSel] = useState(null);
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [modalAgendarAbierto, setModalAgendarAbierto] = useState(false);
+  const [fechaSel, setFechaSel] = useState("");
+  const [exitoAgendar, setExitoAgendar] = useState(false);
+  const [errorAgendar, setErrorAgendar] = useState(null);
 
   useEffect(() => {
     if (!id) return;
@@ -46,6 +51,38 @@ export const DetalleDoctor = () => {
     setDiaSel(dia);
     setHoraSel(hora);
     setModalAbierto(true);
+  };
+
+  const confirmarAgendar = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify({
+          doctor_id: parseInt(id),
+          date_time: `${fechaSel}T${horaSel}:00`,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setExitoAgendar(false);
+        setErrorAgendar(data.message || "No se pudo agendar la cita");
+      } else {
+        setExitoAgendar(true);
+        setErrorAgendar(null);
+      }
+      setModalAbierto(false);
+      setModalAgendarAbierto(true);
+    } catch {
+      setExitoAgendar(false);
+      setErrorAgendar("Error de conexión. Intenta nuevamente.");
+      setModalAbierto(false);
+      setModalAgendarAbierto(true);
+    }
   };
 
   if (loading)
@@ -182,12 +219,17 @@ export const DetalleDoctor = () => {
                 <p><strong>Hora:</strong> {horaSel}</p>
                 <div className="mb-3">
                   <label className="form-label">Fecha específica</label>
-                  <input type="date" className="form-control" />
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={fechaSel}
+                    onChange={(e) => setFechaSel(e.target.value)}
+                  />
                 </div>
               </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setModalAbierto(false)}>Cancelar</button>
-                <button className="btn btn-primary" onClick={() => { setModalAbierto(false); navigate("/login"); }}>
+                <button className="btn btn-primary" onClick={confirmarAgendar}>
                   Confirmar cita
                 </button>
               </div>
@@ -195,6 +237,17 @@ export const DetalleDoctor = () => {
           </div>
         </div>
       )}
+
+      <ModalConfirmacion
+        abierto={modalAgendarAbierto}
+        onClose={() => setModalAgendarAbierto(false)}
+        exito={exitoAgendar}
+        doctor={doctor}
+        dia={diaSel !== null ? DIAS[diaSel] : ""}
+        hora={horaSel}
+        fecha={fechaSel}
+        error={errorAgendar}
+      />
     </div>
   );
 };
