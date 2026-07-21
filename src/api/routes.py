@@ -210,24 +210,51 @@ def create_appointment():
 @jwt_required()
 def get_appointments():
     user_id = int(get_jwt_identity())
+    role = get_jwt()["role"]
 
-    client = Client.query.get(user_id)
-    if client:
-        appointments = Appointment.query.filter_by(client_id=user_id).order_by(Appointment.date_time.desc()).all()
-        return jsonify({
-            "message": "Appointments retrieved",
-            "appointments": [a.serialize() for a in appointments]
-        }), 200
+    query = Appointment.query
 
-    doctor = Doctor.query.get(user_id)
-    if doctor:
-        appointments = Appointment.query.filter_by(doctor_id=user_id).order_by(Appointment.date_time.desc()).all()
-        return jsonify({
-            "message": "Appointments retrieved",
-            "appointments": [a.serialize() for a in appointments]
-        }), 200
+    if role == "client":
+        query = query.filter_by(client_id=user_id)
+    elif role == "doctor":
+        query = query.filter_by(doctor_id=user_id)
+    else:
+        return jsonify({"message": "Invalid role"}), 403
 
-    return jsonify({"message": "User not found"}), 404
+    estado = request.args.get("estado")
+    if estado:
+        query = query.filter(Appointment.status == estado)
+
+    fecha_desde = request.args.get("fecha_desde")
+    if fecha_desde:
+        try:
+            dt_desde = datetime.fromisoformat(fecha_desde)
+            query = query.filter(Appointment.date_time >= dt_desde)
+        except:
+            return jsonify({"message": "Invalid fecha_desde format. Use ISO format"}), 400
+
+    fecha_hasta = request.args.get("fecha_hasta")
+    if fecha_hasta:
+        try:
+            dt_hasta = datetime.fromisoformat(fecha_hasta)
+            query = query.filter(Appointment.date_time <= dt_hasta)
+        except:
+            return jsonify({"message": "Invalid fecha_hasta format. Use ISO format"}), 400
+
+    appointments = query.order_by(Appointment.date_time.desc()).all()
+
+    result = []
+    for apt in appointments:
+        data = apt.serialize()
+        if role == "client":
+            doctor = Doctor.query.get(apt.doctor_id)
+            data["doctor"] = {"name": doctor.name, "email": doctor.email} if doctor else None
+        elif role == "doctor":
+            client = Client.query.get(apt.client_id)
+            data["client"] = {"name": client.name, "email": client.email} if client else None
+        result.append(data)
+
+    return jsonify(result), 200
 
 
 @api.route("/appointments/<int:id>/status", methods=["PUT"])
