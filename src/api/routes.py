@@ -296,6 +296,31 @@ def get_doctors():
     }), 200
 
 
+@api.route("/doctors/<int:id>", methods=["GET"])
+def get_doctor(id):
+    doctor = Doctor.query.get(id)
+    if doctor is None:
+        return jsonify({"message": "Doctor not found"}), 404
+    if not doctor.is_active:
+        return jsonify({"message": "Doctor not available"}), 404
+    return jsonify({
+        "message": "Doctor retrieved",
+        "doctor": doctor.serialize()
+    }), 200
+
+
+@api.route("/doctors/<int:id>/availability", methods=["GET"])
+def get_doctor_availability(id):
+    doctor = Doctor.query.get(id)
+    if doctor is None:
+        return jsonify({"message": "Doctor not found"}), 404
+    availabilities = Availability.query.filter_by(doctor_id=id).order_by(Availability.day).all()
+    return jsonify({
+        "message": "Availability retrieved",
+        "availabilities": [a.serialize() for a in availabilities]
+    }), 200
+
+
 @api.route("/doctors/filter", methods=["GET"])
 def filter_doctors_by_specialty():
     specialty = request.args.get("specialty") or request.args.get("especialidad")
