@@ -10,6 +10,7 @@ import { Demo } from "./pages/Demo";
 import { Login } from "./pages/Login";
 import { PerfilCliente } from "./pages/PerfilCliente";
 import { PerfilDoctor } from "./pages/PerfilDoctor";
+import { SingleDoctorProfile } from "./pages/SingleDoctorProfile";
 
 export const router = createBrowserRouter(
     createRoutesFromElements(
@@ -20,6 +21,8 @@ export const router = createBrowserRouter(
         <Route path="/login" element={<Login />} />
         <Route path="/perfil-cliente" element={<PerfilCliente />} />
         <Route path="/perfil-doctor" element={<PerfilDoctor />} />
+        <Route path="/doctores" element={<SingleDoctorProfile />} />
+        <Route path="/doctores/:id" element={<SingleDoctorProfile />} />
       </Route>
     )
 );
