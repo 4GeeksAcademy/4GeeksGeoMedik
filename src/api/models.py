@@ -68,7 +68,6 @@ class Availability(db.Model):
     day = db.Column(db.Integer, nullable=False)  # 0=Lunes ... 6=Domingo
     time_start = db.Column(db.Time, nullable=False)
     time_end = db.Column(db.Time, nullable=False)
-    picture_url = db.Column(db.String(255), nullable=True)
 
     doctor = db.relationship("Doctor", backref="availabilities")
 
@@ -79,7 +78,6 @@ class Availability(db.Model):
             "day": self.day,
             "time_start": self.time_start.isoformat() if self.time_start else None,
             "time_end": self.time_end.isoformat() if self.time_end else None,
-            "picture_url": self.picture_url,
         }
 
 
