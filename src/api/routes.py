@@ -4,7 +4,7 @@ from api.utils import APIException
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 api = Blueprint('api', __name__)
@@ -309,15 +309,68 @@ def get_doctor(id):
     }), 200
 
 
-@api.route("/doctors/<int:id>/availability", methods=["GET"])
+@api.route('/doctors/<int:id>/availability', methods=['GET'])
 def get_doctor_availability(id):
     doctor = Doctor.query.get(id)
     if doctor is None:
         return jsonify({"message": "Doctor not found"}), 404
+
     availabilities = Availability.query.filter_by(doctor_id=id).order_by(Availability.day).all()
+    if not availabilities:
+        return jsonify({
+            "message": "Doctor has no availability configured",
+            "availability": {}
+        }), 200
+
+    dias_nombres = {0: "lunes", 1: "martes", 2: "miercoles", 3: "jueves", 4: "viernes", 5: "sabado", 6: "domingo"}
+
+    citas = Appointment.query.filter(
+        Appointment.doctor_id == id,
+        Appointment.status.in_(["agendada", "pendiente", "confirmada"])
+    ).all()
+
+    horas_ocupadas = {}
+    for cita in citas:
+        fecha = cita.date_time.date()
+        hora = cita.date_time.time()
+        key = (fecha, hora.strftime("%H:%M"))
+        horas_ocupadas[key] = True
+
+    resultado = {}
+
+    for avail in availabilities:
+        nombre_dia = dias_nombres.get(avail.day, f"dia_{avail.day}")
+        horas_totales = []
+
+        horaActual = avail.time_start
+        while horaActual <= avail.time_end:
+            horas_totales.append(horaActual)
+            horaActual = (datetime.combine(datetime.min, horaActual) + timedelta(hours=1)).time()
+
+        horas_libres = []
+        cita_param = request.args.get("fecha")
+        fecha_filtro = None
+        if cita_param:
+            try:
+                fecha_filtro = datetime.fromisoformat(cita_param).date()
+            except:
+                pass
+
+        for hora in horas_totales:
+            hora_str = hora.strftime("%H:%M")
+            if fecha_filtro is not None:
+                if (fecha_filtro, hora) in horas_ocupadas:
+                    continue
+            horas_libres.append(hora_str)
+
+        if nombre_dia in resultado:
+            resultado[nombre_dia].extend(horas_libres)
+        else:
+            resultado[nombre_dia] = horas_libres
+
     return jsonify({
         "message": "Availability retrieved",
-        "availabilities": [a.serialize() for a in availabilities]
+        "availability": resultado
     }), 200
 
 
