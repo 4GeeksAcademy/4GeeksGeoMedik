@@ -101,7 +101,7 @@ def login_client():
     if not check_password_hash(client.password, password):
         return jsonify({"message": "Invalid password"}), 401
 
-    access_token = create_access_token(identity=str(client.id))
+    access_token = create_access_token(identity=str(client.id), additional_claims={"role": "client"})
 
     return jsonify({
         "message": "Login successful",
@@ -129,7 +129,7 @@ def login_doctor():
     if not check_password_hash(doctor.password, password):
         return jsonify({"message": "Invalid password"}), 401
 
-    access_token = create_access_token(identity=str(doctor.id))
+    access_token = create_access_token(identity=str(doctor.id), additional_claims={"role": "doctor"})
 
     return jsonify({
         "message": "Login successful",
