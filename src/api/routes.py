@@ -283,12 +283,84 @@ def filter_doctors_by_specialty():
     }), 200
 
 
+@api.route("/appointments/<int:id>", methods=["PUT"])
+@jwt_required()
+def update_appointment(id):
+    user_id = int(get_jwt_identity())
+    appointment = Appointment.query.get(id)
+    if appointment is None:
+        return jsonify({"message": "Appointment not found"}), 404
+
+    if user_id != appointment.client_id and user_id != appointment.doctor_id:
+        return jsonify({"message": "You do not own this appointment"}), 403
+
 @api.route("/notifications/appointment-created", methods=["POST"])
 def notify_appointment_created():
     body = request.get_json()
     if body is None:
         return jsonify({"message": "Body is required"}), 400
 
+    updated = False
+
+    new_date_time = body.get("date_time")
+    if new_date_time:
+        try:
+            date_obj = datetime.fromisoformat(new_date_time.replace('Z', '+00:00'))
+        except:
+            return jsonify({"message": "Invalid date_time format. Use ISO format"}), 400
+
+        date = date_obj.date()
+        time_obj = date_obj.time()
+        day = date.weekday()
+
+        availability = Availability.query.filter_by(doctor_id=appointment.doctor_id, day=day).first()
+        if availability is None:
+            return jsonify({"message": "Doctor not available on that day"}), 400
+
+        if not (availability.time_start <= time_obj <= availability.time_end):
+            return jsonify({"message": "New time not within doctor's availability"}), 400
+
+        conflict = Appointment.query.filter(
+            Appointment.id != id,
+            Appointment.doctor_id == appointment.doctor_id,
+            db.func.date(Appointment.date_time) == date,
+            Appointment.status.in_(["agendada", "confirmada"])
+        ).first()
+
+        if conflict:
+            return jsonify({"message": "Time slot already booked"}), 409
+
+        appointment.date_time = date_obj
+        updated = True
+
+    new_status = body.get("status")
+    if new_status:
+        if new_status not in ["agendada", "confirmada", "cancelada", "completada"]:
+            return jsonify({"message": "Invalid status"}), 400
+
+        doctor = Doctor.query.get(user_id)
+        if doctor and appointment.doctor_id == doctor.id:
+            appointment.status = new_status
+            updated = True
+        else:
+            if new_status != "cancelada":
+                return jsonify({"message": "Clients can only cancel appointments"}), 403
+            appointment.status = new_status
+            updated = True
+
+    if not updated:
+        return jsonify({"message": "No changes provided. Send status and/or date_time"}), 400
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Database error: {str(e)}"}), 500
+
+    return jsonify({
+        "message": "Appointment updated",
+        "appointment": appointment.serialize()
+    }), 200
     appointment_id = body.get("appointment_id")
     if appointment_id is None:
         return jsonify({"message": "appointment_id is required"}), 400
