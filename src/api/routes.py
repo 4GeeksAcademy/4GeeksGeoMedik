@@ -304,7 +304,6 @@ def create_appointment():
         return jsonify({"message": "Body is required"}), 400
 
     required_fields = [
-        "client_id",
         "doctor_id",
         "date_time"
     ]
@@ -313,7 +312,8 @@ def create_appointment():
         if not body.get(field):
             return jsonify({"message": f"{field} is required"}), 400
 
-    client = Client.query.get(body["client_id"])
+    client_id = get_jwt_identity()
+    client = Client.query.get(int(client_id))
     if client is None:
         return jsonify({"message": "Client not found"}), 404
 
@@ -321,11 +321,38 @@ def create_appointment():
     if doctor is None:
         return jsonify({"message": "Doctor not found"}), 404
 
-    new_appointment = Appointment(
-        client_id=body["client_id"],
+    try:
+        date_time_str = body["date_time"]
+        date_obj = datetime.fromisoformat(date_time_str.replace('Z', '+00:00'))
+    except:
+        return jsonify({"message": "Invalid date_time format. Use ISO format"}), 400
+
+    date = date_obj.date()
+    time_obj = date_obj.time()
+    
+    day = date.weekday()
+    
+    availability = doctor.availabilities.filter_by(day=day).first()
+    if availability is None:
+        return jsonify({"message": "Doctor not available on this day"}), 400
+
+    if not (availability.time_start <= time_obj <= availability.time_end):
+        return jsonify({"message": "Appointment time not within doctor's availability"}), 400
+
+    existing_appointment = Appointment.query.filter_by(
         doctor_id=body["doctor_id"],
-        date_time=datetime.fromisoformat(body["date_time"]),
-        status="pending"
+        date_time__like=f"%{date}%",
+        status__in=["agendada", "pendiente", "confirmada"]
+    ).first()
+
+    if existing_appointment:
+        return jsonify({"message": "Time slot already booked for this doctor"}), 409
+
+    new_appointment = Appointment(
+        client_id=int(client_id),
+        doctor_id=body["doctor_id"],
+        date_time=date_obj,
+        status="agendada"
     )
 
     db.session.add(new_appointment)
