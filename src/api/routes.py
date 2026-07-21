@@ -3,7 +3,7 @@ from api.models import db, Client, Doctor, Appointment, Availability
 from api.utils import APIException
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
 
 
@@ -150,6 +150,8 @@ def create_appointment():
             return jsonify({"message": f"{field} is required"}), 400
 
     client_id = int(get_jwt_identity())
+    if get_jwt()["role"] != "client":
+        return jsonify({"message": "Only clients can create appointments"}), 403
     client = Client.query.get(client_id)
     if client is None:
         return jsonify({"message": "Client not found"}), 404
