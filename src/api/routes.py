@@ -19,6 +19,34 @@ def handle_hello():
     }), 200
 
 
+@api.route("/me", methods=["GET"])
+@jwt_required()
+def get_me():
+    user_id = int(get_jwt_identity())
+    role = get_jwt()["role"]
+
+    if role == "client":
+        client = Client.query.get(user_id)
+        if client is None:
+            return jsonify({"message": "Client not found"}), 404
+        return jsonify({
+            "message": "User retrieved",
+            "role": "client",
+            "user": client.serialize()
+        }), 200
+
+    if role == "doctor":
+        doctor = Doctor.query.get(user_id)
+        if doctor is None:
+            return jsonify({"message": "Doctor not found"}), 404
+        return jsonify({
+            "message": "User retrieved",
+            "role": "doctor",
+            "user": doctor.serialize()
+        }), 200
+
+    return jsonify({"message": "Invalid role"}), 403
+
 @api.route("/signup/client", methods=["POST"])
 def signup_client():
     body = request.get_json()
