@@ -1,4 +1,7 @@
 // Sección de especialidades médicas (tarjetas con iconos, sin imágenes)
+import { useNavigate, Link } from "react-router-dom";
+
+// Sección de especialidades médicas (tarjetas con iconos, sin imágenes)
 const especialidades = [
   {
     nombre: "Pediatría",
@@ -39,6 +42,8 @@ const especialidades = [
 ];
 
 export const Especialidades = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="py-5">
       <div className="container-xl py-4">
@@ -49,16 +54,22 @@ export const Especialidades = () => {
               Contamos con expertos en más de 30 áreas de la salud para toda tu familia.
             </p>
           </div>
-          <a href="#" className="text-primary fw-semibold text-decoration-none">
-            Ver todas las especialidades
+          {/* Lleva a la página de buscar doctores */}
+          <Link to="/doctores" className="text-primary fw-semibold text-decoration-none">
+            Ver todos los doctores
             <span className="material-symbols-outlined fs-6 align-middle ms-1">open_in_new</span>
-          </a>
+          </Link>
         </div>
 
         <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
           {especialidades.map((especialidad) => (
             <div className="col" key={especialidad.nombre}>
-              <div className="card h-100 border-0 shadow-sm rounded-4 p-3" role="button">
+              {/* Al hacer click en una especialidad vamos a la lista de doctores */}
+              <div
+                className="card h-100 border-0 shadow-sm rounded-4 p-3"
+                role="button"
+                onClick={() => navigate("/doctores")}
+              >
                 <div className="card-body">
                   <div
                     className={`rounded-4 d-flex align-items-center justify-content-center mb-3 ${especialidad.color}`}
