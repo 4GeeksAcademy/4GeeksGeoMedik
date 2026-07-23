@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 // Popup que aparece 3 segundos después de cargar la página
 export const PopupConsulta = () => {
   const [visible, setVisible] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), 3000);
@@ -11,6 +13,12 @@ export const PopupConsulta = () => {
 
   // Si no es visible no renderizamos nada
   if (!visible) return null;
+
+  // Si hay sesión va a buscar doctores, si no, primero al login
+  const handleUnirse = () => {
+    const token = localStorage.getItem("token");
+    navigate(token ? "/doctores" : "/login");
+  };
 
   return (
     <div
@@ -28,7 +36,9 @@ export const PopupConsulta = () => {
         </div>
         <p className="fw-bold text-primary small mb-1">Consulta Disponible</p>
         <p className="mb-3">Dr. Alejandro Méndez está disponible ahora para telemedicina.</p>
-        <button className="btn btn-primary w-100 fw-semibold">Unirse Ahora</button>
+        <button className="btn btn-primary w-100 fw-semibold" onClick={handleUnirse}>
+          Unirse Ahora
+        </button>
       </div>
     </div>
   );

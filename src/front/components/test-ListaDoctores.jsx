@@ -3,9 +3,13 @@ import ListaDoctores from '../../../src/front/components/ListaDoctores';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 
-vi.mock('../../../src/front/components/CardsGrid', () => ({ doctors }) => (
-  <div data-testid="cards-grid-mock">{`Mocked: ${doctors.length}`}</div>
-));
+vi.mock('../../../src/front/components/CardsGrid', () => {
+  function CardsGridMock({ doctors }) {
+    return <div data-testid="cards-grid-mock">{`Mocked: ${doctors.length}`}</div>;
+  }
+
+  return { default: CardsGridMock };
+});
 
 describe('ListaDoctores Component', () => {
   it('renders doctor list component', () => {

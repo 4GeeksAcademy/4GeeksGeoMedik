@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-// Logo URL from existing Navbar
 const LOGO_URL =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuBXLAcu67FCpeTOFCHu5mQFJ9wQj6Ww-vq0dM-jbr4MIHmAUAw0p4w8ilzfe24KLrkTT3E2VxADyVS3g_2XxJZ6vvDfruAkcBFO6cvcufmUNGFSwxyr303Z5UVHktzH4FoYhuQ39k7TUasOWG0inz-hWcb5BAYPpIXCLS_Bv9V4uBgV5fDHEudxEhmZI4UfJpjEGIV3pfR14aSAgHa9Y7FuKtwLbnfJNFWnNZKlRlB8O5K8uuBEjeXO3sxW_0qysEUXKqNDX2KVE5E5MrY2Lv4OtNrV";
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuBXLAcu67FCpeTOFCHu5mQFJ9wQj6Ww-vq0dM-jbr4MIHmAUAw0p4w8ilzfe24KLrkTT3E2VxADyVS3g_2XxJZ6vvDfruAkcBFO6cvcufmUNGFSwxyr303Z5UVHktzH4FoYhuQ39k7TUasOWG0inz-hWcb5BAYPpIXCLS_Bv9V4uBgV5fDHEudxEhmZI4UfJpjEGIV3pfR14aSAgHa9Y7FuKtwLbnfJNFWnNZKlRlB8O5K8uuBEjeXO3sxW_0qysEUXKqNDX2KVk5E";
 
-// Navigation options - using "Buscar Médicos" for the doctors list link
+// Opciones del menú desplegable según el rol
 const opcionesDoctor = [
   { texto: "Perfil", icono: "person", ruta: "/perfil-doctor" },
   { texto: "Historial de consultas", icono: "history", ruta: "/historial-consultas" },
@@ -19,20 +18,35 @@ const opcionesCliente = [
 ];
 
 export const Navbar = () => {
-  const [usuario] = useState({ nombre: "Alejandro", rol: "doctor" });
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
+  const navigate = useNavigate();
 
-  const opcionesMenu =
-    usuario && usuario.rol === "doctor" ? opcionesDoctor : opcionesCliente;
+  // Leemos la sesión que guardó el Login en localStorage
+  // rol: "cliente" o "doctor" | usuario: objeto con los datos del backend
+  const rol = localStorage.getItem("rol");
+  const usuarioGuardado = localStorage.getItem("usuario");
+  const usuario = usuarioGuardado ? JSON.parse(usuarioGuardado) : null;
+
+  const opcionesMenu = rol === "doctor" ? opcionesDoctor : opcionesCliente;
+
+  const cerrarSesion = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("rol");
+    localStorage.removeItem("usuario");
+    setMenuUsuarioAbierto(false);
+    navigate("/");
+  };
 
   return (
     <nav className="navbar navbar-expand-md bg-white shadow-sm fixed-top">
       <div className="container-xl">
+        {/* Logo */}
         <Link to="/" className="navbar-brand d-flex align-items-center gap-2">
           <img src={LOGO_URL} alt="Logo de GeoMedic" width="40" height="40" />
           <span className="fs-4 fw-bold text-primary">GeoMedic</span>
         </Link>
 
+        {/* Botón hamburguesa (solo móvil) */}
         <button
           className="navbar-toggler"
           type="button"
@@ -43,28 +57,25 @@ export const Navbar = () => {
         </button>
 
         <div className="collapse navbar-collapse" id="menuNavbar">
+          {/* Links de navegación */}
           <ul className="navbar-nav mx-auto gap-md-3">
             <li className="nav-item">
               <Link to="/" className="nav-link fw-semibold">Home</Link>
             </li>
-
-            {/* NEW: Link to Buscar Médicos page */}
             <li className="nav-item">
               <Link to="/doctores" className="nav-link fw-semibold">Buscar Médicos</Link>
-            </li>
-
-            <li className="nav-item">
-              <Link to="/" className="nav-link fw-semibold">Especialidades</Link>
             </li>
           </ul>
 
           <div className="d-flex align-items-center gap-3">
+            {/* Notificaciones */}
             <button className="btn btn-light rounded-circle position-relative">
               <span className="material-symbols-outlined align-middle">notifications</span>
               <span className="position-absolute top-0 end-0 p-1 bg-danger rounded-circle border border-white"></span>
             </button>
 
             {usuario ? (
+              // Usuario logueado: avatar con su inicial que abre el menú desplegable
               <div className="position-relative">
                 <button
                   className="btn btn-light d-flex align-items-center gap-2 rounded-pill"
@@ -74,12 +85,13 @@ export const Navbar = () => {
                     className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold"
                     style={{ width: "32px", height: "32px" }}
                   >
-                    {usuario.nombre.charAt(0).toUpperCase()}
+                    {usuario.name.charAt(0).toUpperCase()}
                   </span>
-                  <span className="fw-semibold d-none d-sm-inline">{usuario.nombre}</span>
+                  <span className="fw-semibold d-none d-sm-inline">{usuario.name}</span>
                   <span className="material-symbols-outlined">expand_more</span>
                 </button>
 
+                {/* Menú desplegable del usuario (doctor o cliente) */}
                 {menuUsuarioAbierto && (
                   <div
                     className="position-absolute end-0 mt-2 bg-white rounded-4 shadow border p-3"
@@ -94,6 +106,7 @@ export const Navbar = () => {
                       </button>
                     </div>
 
+                    {/* Links según el rol */}
                     {opcionesMenu.map((opcion) => (
                       <Link
                         key={opcion.texto}
@@ -110,10 +123,7 @@ export const Navbar = () => {
 
                     <button
                       className="btn btn-outline-danger w-100 d-flex align-items-center gap-2"
-                      onClick={() => {
-                        setMenuUsuarioAbierto(false);
-                        setUsuario(null);
-                      }}
+                      onClick={cerrarSesion}
                     >
                       <span className="material-symbols-outlined fs-5">logout</span>
                       Cerrar sesión
@@ -122,9 +132,14 @@ export const Navbar = () => {
                 )}
               </div>
             ) : (
+              // Usuario sin login: botones que llevan al login y al registro
               <div className="d-flex gap-2">
-                <button className="btn btn-outline-primary fw-semibold">Iniciar Sesión</button>
-                <button className="btn btn-primary fw-semibold">Registrarse</button>
+                <Link to="/login" className="btn btn-outline-primary fw-semibold">
+                  Iniciar Sesión
+                </Link>
+                <Link to="/registro" className="btn btn-primary fw-semibold">
+                  Registrarse
+                </Link>
               </div>
             )}
           </div>

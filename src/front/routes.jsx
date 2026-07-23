@@ -12,7 +12,7 @@ import { PerfilCliente } from "./pages/PerfilCliente";
 import { PerfilDoctor } from "./pages/PerfilDoctor";
 import { SingleDoctorProfile } from "./pages/SingleDoctorProfile";
 import { DetalleDoctor } from "./components/DetalleDoctor";
-
+import { Registro } from "./pages/Registro";
 export const router = createBrowserRouter(
     createRoutesFromElements(
       <Route path="/" element={<Layout />} errorElement={<h1>Not found!</h1>} >
@@ -24,6 +24,8 @@ export const router = createBrowserRouter(
         <Route path="/perfil-doctor" element={<PerfilDoctor />} />
         <Route path="/doctores" element={<SingleDoctorProfile />} />
         <Route path="/doctores/:id" element={<DetalleDoctor />} />
+        <Route path="/registro" element={<Registro />} />
       </Route>
+      
     )
 );
