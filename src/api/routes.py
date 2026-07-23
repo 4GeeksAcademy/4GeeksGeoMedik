@@ -1,10 +1,11 @@
-from flask import request, jsonify, Blueprint
+from flask import request, jsonify, Blueprint, current_app
 from api.models import db, Client, Doctor, Appointment, Availability
 from api.utils import APIException
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 
 api = Blueprint('api', __name__)
@@ -49,30 +50,52 @@ def get_me():
 
 @api.route("/signup/client", methods=["POST"])
 def signup_client():
-    body = request.get_json()
-    if body is None:
+    body = request.get_json(silent=True)
+    if not body:
         return jsonify({"message": "Body is required"}), 400
 
     required_fields = ["name", "email", "password", "phone_number", "address"]
+    clean_data = {
+        field: str(body.get(field, "")).strip()
+        for field in required_fields
+    }
+
     for field in required_fields:
-        if not body.get(field):
+        if not clean_data[field]:
             return jsonify({"message": f"{field} is required"}), 400
 
-    if Client.query.filter_by(email=body["email"]).first():
-        return jsonify({"message": "Client already exists"}), 400
+    email = clean_data["email"].lower()
+    password = clean_data["password"]
+
+    if len(password) < 6:
+        return jsonify({"message": "Password must have at least 6 characters"}), 400
+
+    if Client.query.filter_by(email=email).first():
+        return jsonify({"message": "Client already exists"}), 409
 
     new_client = Client(
-        name=body["name"],
-        email=body["email"],
-        password=generate_password_hash(body["password"]),
-        phone_number=body["phone_number"],
-        address=body["address"]
+        name=clean_data["name"],
+        email=email,
+        password=generate_password_hash(password),
+        phone_number=clean_data["phone_number"],
+        address=clean_data["address"]
     )
 
-    db.session.add(new_client)
-    db.session.commit()
+    try:
+        db.session.add(new_client)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "Client already exists"}), 409
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("Database error while creating client")
+        return jsonify({"message": "Could not create client"}), 500
 
-    return jsonify({"message": "Client created successfully"}), 201
+    return jsonify({
+        "message": "Client created successfully",
+        "client": new_client.serialize()
+    }), 201
 
 
 @api.route("/signup/doctor", methods=["POST"])

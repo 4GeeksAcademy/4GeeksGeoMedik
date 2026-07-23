@@ -4,6 +4,8 @@ import { useNavigate, Link } from "react-router-dom";
 const LOGO_URL =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuBXLAcu67FCpeTOFCHu5mQFJ9wQj6Ww-vq0dM-jbr4MIHmAUAw0p4w8ilzfe24KLrkTT3E2VxADyVS3g_2XxJZ6vvDfruAkcBFO6cvcufmUNGFSwxyr303Z5UVHktzH4FoYhuQ39k7TUasOWG0inz-hWcb5BAYPpIXCLS_Bv9V4uBgV5fDHEudxEhmZI4UfJpjEGIV3pfR14aSAgHa9Y7FuKtwLbnfJNFWnNZKlRlB8O5K8uuBEjeXO3sxW_0qysEUXKqNDX2KVk5E";
 
+const API_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
+
 // Campos del formulario (los mismos que pide el modelo Client del backend)
 const camposFormulario = [
   { name: "name", label: "Nombre completo", tipo: "text", icono: "person", placeholder: "Juan Pérez" },
@@ -37,7 +39,6 @@ export const Registro = () => {
     e.preventDefault();
     setError("");
 
-    // Validaciones simples antes de llamar a la API
     const hayCampoVacio = Object.values(form).some((valor) => !valor.trim());
     if (hayCampoVacio) {
       setError("Todos los campos son obligatorios");
@@ -55,28 +56,31 @@ export const Registro = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/signup/client`, {
+      const res = await fetch(`${API_URL}/api/signup/client`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: form.name,
-          email: form.email,
+          name: form.name.trim(),
+          email: form.email.trim().toLowerCase(),
           password: form.password,
-          phone_number: form.phone_number,
-          address: form.address,
+          phone_number: form.phone_number.trim(),
+          address: form.address.trim(),
         }),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
+        ? await res.json()
+        : {};
 
       if (!res.ok) {
-        setError(data.message || "No se pudo crear la cuenta");
+        setError(data.message || `El servidor respondió con error ${res.status}`);
         return;
       }
 
-      // Cuenta creada: lo mandamos al login para que entre
       navigate("/login");
-    } catch {
+    } catch (error) {
+      console.error("Error al registrar cliente:", error);
       setError("No se pudo conectar con el servidor");
     } finally {
       setLoading(false);
@@ -121,6 +125,8 @@ export const Registro = () => {
                           placeholder={campo.placeholder}
                           value={form[campo.name]}
                           onChange={handleChange}
+                          required
+                          minLength={campo.name === "password" || campo.name === "confirmar" ? 6 : undefined}
                         />
                       </div>
                     </div>
