@@ -529,3 +529,57 @@ def notify_appointment_created():
         return jsonify({"message": "appointment_id is required"}), 400
 
     return jsonify({"message": "Notification sent"}), 200
+
+
+@api.route("/availability", methods=["POST"])
+@jwt_required()
+def create_availability():
+    if get_jwt()["role"] != "doctor":
+        return jsonify({"message": "Only doctors can add availability"}), 403
+
+    doctor_id = int(get_jwt_identity())
+    body = request.get_json()
+    if body is None:
+        return jsonify({"message": "Body is required"}), 400
+
+    for field in ["day", "time_start", "time_end"]:
+        if body.get(field) is None:
+            return jsonify({"message": f"{field} is required"}), 400
+
+    try:
+        time_start = datetime.strptime(body["time_start"], "%H:%M").time()
+        time_end = datetime.strptime(body["time_end"], "%H:%M").time()
+    except ValueError:
+        return jsonify({"message": "Invalid time format. Use HH:MM"}), 400
+
+    new_availability = Availability(
+        doctor_id=doctor_id,
+        day=int(body["day"]),
+        time_start=time_start,
+        time_end=time_end,
+    )
+    db.session.add(new_availability)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Availability created",
+        "availability": new_availability.serialize()
+    }), 201
+
+
+@api.route("/availability/<int:id>", methods=["DELETE"])
+@jwt_required()
+def delete_availability(id):
+    if get_jwt()["role"] != "doctor":
+        return jsonify({"message": "Only doctors can delete availability"}), 403
+
+    doctor_id = int(get_jwt_identity())
+    availability = Availability.query.get(id)
+    if availability is None:
+        return jsonify({"message": "Availability not found"}), 404
+    if availability.doctor_id != doctor_id:
+        return jsonify({"message": "Unauthorized"}), 403
+
+    db.session.delete(availability)
+    db.session.commit()
+    return jsonify({"message": "Availability deleted"}), 200
