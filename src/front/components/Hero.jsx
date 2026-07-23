@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 const estadisticas = [
   { numero: "+500", texto: "Médicos verificados" },
   { numero: "+30", texto: "Especialidades" },
@@ -33,13 +35,18 @@ export const Hero = () => {
             </p>
 
             <div className="d-flex flex-column flex-sm-row gap-3 mb-4">
-              <button className="btn btn-primary btn-lg d-flex align-items-center justify-content-center gap-2">
+              {/* Agendar cita lleva a la lista de doctores */}
+              <Link
+                to="/doctores"
+                className="btn btn-primary btn-lg d-flex align-items-center justify-content-center gap-2"
+              >
                 Agendar Cita
                 <span className="material-symbols-outlined">arrow_forward</span>
-              </button>
-              <button className="btn btn-outline-secondary btn-lg">
+              </Link>
+              {/* El registro de médicos lleva a la página de registro */}
+              <Link to="/registro" className="btn btn-outline-secondary btn-lg">
                 ¿Eres médico? Regístrate
-              </button>
+              </Link>
             </div>
 
             {/* Estadísticas rápidas */}
