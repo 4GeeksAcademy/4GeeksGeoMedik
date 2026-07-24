@@ -12,6 +12,23 @@ api = Blueprint('api', __name__)
 
 CORS(api)
 
+def crear_notificacion(
+    usuario_id,
+    usuario_tipo,
+    tipo,
+    mensaje,
+    appointment_id=None
+):
+    notification = Notification(
+        usuario_id=usuario_id,
+        usuario_tipo=usuario_tipo,
+        tipo=tipo,
+        mensaje=mensaje,
+        appointment_id=appointment_id
+    )
+
+    db.session.add(notification)
+
 
 @api.route('/hello', methods=['POST', 'GET'])
 def handle_hello():
@@ -243,10 +260,29 @@ def create_appointment():
         status="agendada"
     )
 
-    db.session.add(new_appointment)
+   db.session.add(new_appointment)
 
-    try:
-        db.session.commit()
+try:
+    db.session.flush()
+
+    appointment_date = date_obj.strftime("%d/%m/%Y")
+    appointment_time = date_obj.strftime("%H:%M")
+
+    message = (
+        f"Nueva cita agendada por {client.name} "
+        f"el {appointment_date} a las {appointment_time}"
+    )
+
+    crear_notificacion(
+        usuario_id=doctor.id,
+        usuario_tipo="doctor",
+        tipo="nueva_cita",
+        mensaje=message,
+        appointment_id=new_appointment.id
+    )
+
+    db.session.commit()
+    
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": f"Database error: {str(e)}"}), 500
