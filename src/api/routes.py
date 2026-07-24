@@ -613,9 +613,9 @@ def delete_availability(id):
     db.session.commit()
     return jsonify({"message": "Availability deleted"}), 200
 
-    
 
-    @api.route("/notifications", methods=["GET"])
+
+@api.route("/notifications", methods=["GET"])
 @jwt_required()
 def get_notifications():
     user_id = int(get_jwt_identity())
