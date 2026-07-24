@@ -612,3 +612,37 @@ def delete_availability(id):
     db.session.delete(availability)
     db.session.commit()
     return jsonify({"message": "Availability deleted"}), 200
+
+    
+
+    @api.route("/notifications", methods=["GET"])
+@jwt_required()
+def get_notifications():
+    user_id = int(get_jwt_identity())
+    role = get_jwt()["role"]
+
+    user_type = "cliente" if role == "client" else role
+
+    notifications_query = Notification.query.filter_by(
+        usuario_id=user_id,
+        usuario_tipo=user_type
+    )
+
+    unread_count = notifications_query.filter_by(leida=False).count()
+
+    only_unread = request.args.get("solo_no_leidas", "false").lower()
+
+    if only_unread == "true":
+        notifications_query = notifications_query.filter_by(leida=False)
+
+    notifications = notifications_query.order_by(
+        Notification.fecha_creacion.desc()
+    ).all()
+
+    return jsonify({
+        "notifications": [
+            notification.serialize()
+            for notification in notifications
+        ],
+        "unread_count": unread_count
+    }), 200
