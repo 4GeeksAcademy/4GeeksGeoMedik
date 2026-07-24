@@ -1,5 +1,5 @@
 from flask import request, jsonify, Blueprint
-from api.models import db, Client, Doctor, Appointment, Availability
+from api.models import db, Client, Doctor, Appointment, Availability, Notification
 from api.utils import APIException
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -366,3 +366,32 @@ def notify_appointment_created():
         return jsonify({"message": "appointment_id is required"}), 400
 
     return jsonify({"message": "Notification sent"}), 200
+
+@api.route("/notifications/<int:id>/read", methods=["PUT"])
+@jwt_required()
+def mark_notification_as_read(id):
+    user_id = int(get_jwt_identity())
+    role = get_jwt()["role"]
+
+    notification = Notification.query.get(id)
+
+    if notification is None:
+        return jsonify({"message": "Notification not found"}), 404
+
+    user_type = "cliente" if role == "client" else role
+
+    if (
+        notification.usuario_id != user_id
+        or notification.usuario_tipo != user_type
+    ):
+        return jsonify({
+            "message": "You are not authorized to update this notification"
+        }), 403
+
+    notification.leida = True
+    db.session.commit()
+
+    return jsonify({
+        "message": "Notification marked as read",
+        "notification": notification.serialize()
+    }), 200
