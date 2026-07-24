@@ -1,35 +1,41 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-// Único logo del proyecto (va solo en el navbar)
 const LOGO_URL =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuBXLAcu67FCpeTOFCHu5mQFJ9wQj6Ww-vq0dM-jbr4MIHmAUAw0p4w8ilzfe24KLrkTT3E2VxADyVS3g_2XxJZ6vvDfruAkcBFO6cvcufmUNGFSwxyr303Z5UVHktzH4FoYhuQ39k7TUasOWG0inz-hWcb5BAYPpIXCLS_Bv9V4uBgV5fDHEudxEhmZI4UfJpjEGIV3pfR14aSAgHa9Y7FuKtwLbnfJNFWnNZKlRlB8O5K8uuBEjeXO3sxW_0qysEUXKqNDX2KVk5E";
 
-// Opciones del menú desplegable según el rol (como en el wireframe).
-// Cada opción es un link a una página que haremos después.
+// Opciones del menú desplegable según el rol
 const opcionesDoctor = [
-  { texto: "Perfil", icono: "person", ruta: "/perfil" },
+  { texto: "Perfil", icono: "person", ruta: "/perfil-doctor" },
   { texto: "Historial de consultas", icono: "history", ruta: "/historial-consultas" },
-  { texto: "Calendario", icono: "calendar_month", ruta: "/calendario" },
+  { texto: "Calendario", icono: "calendar_month", ruta: "/calendario-doctor" },
 ];
 
 const opcionesCliente = [
-  { texto: "Perfil", icono: "person", ruta: "/perfil" },
+  { texto: "Perfil", icono: "person", ruta: "/perfil-cliente" },
   { texto: "Consultas", icono: "stethoscope", ruta: "/consultas" },
   { texto: "Calendario", icono: "calendar_month", ruta: "/calendario" },
 ];
 
 export const Navbar = () => {
-  // Usuario logueado. En el proyecto real este dato vendrá del login (context o backend).
-  // Lo dejamos con un usuario de prueba para poder ver el menú desplegable.
-  // Cambia el rol a "cliente" para ver el menú del cliente, o pon null para verlo deslogueado.
-  const [usuario, setUsuario] = useState({ nombre: "Alejandro", rol: "doctor" });
-
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
+  const navigate = useNavigate();
 
-  // Elegimos las opciones del menú según el rol del usuario
-  const opcionesMenu =
-    usuario && usuario.rol === "doctor" ? opcionesDoctor : opcionesCliente;
+  // Leemos la sesión que guardó el Login en localStorage
+  // rol: "cliente" o "doctor" | usuario: objeto con los datos del backend
+  const rol = localStorage.getItem("rol");
+  const usuarioGuardado = localStorage.getItem("usuario");
+  const usuario = usuarioGuardado ? JSON.parse(usuarioGuardado) : null;
+
+  const opcionesMenu = rol === "doctor" ? opcionesDoctor : opcionesCliente;
+
+  const cerrarSesion = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("rol");
+    localStorage.removeItem("usuario");
+    setMenuUsuarioAbierto(false);
+    navigate("/");
+  };
 
   return (
     <nav className="navbar navbar-expand-md bg-white shadow-sm fixed-top">
@@ -54,13 +60,10 @@ export const Navbar = () => {
           {/* Links de navegación */}
           <ul className="navbar-nav mx-auto gap-md-3">
             <li className="nav-item">
-              <Link to="/" className="nav-link active fw-semibold text-primary">Home</Link>
+              <Link to="/" className="nav-link fw-semibold">Home</Link>
             </li>
             <li className="nav-item">
-              <a href="#" className="nav-link fw-semibold">Buscar Médicos</a>
-            </li>
-            <li className="nav-item">
-              <a href="#" className="nav-link fw-semibold">Especialidades</a>
+              <Link to="/doctores" className="nav-link fw-semibold">Buscar Médicos</Link>
             </li>
           </ul>
 
@@ -82,9 +85,9 @@ export const Navbar = () => {
                     className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold"
                     style={{ width: "32px", height: "32px" }}
                   >
-                    {usuario.nombre.charAt(0).toUpperCase()}
+                    {usuario.name.charAt(0).toUpperCase()}
                   </span>
-                  <span className="fw-semibold d-none d-sm-inline">{usuario.nombre}</span>
+                  <span className="fw-semibold d-none d-sm-inline">{usuario.name}</span>
                   <span className="material-symbols-outlined">expand_more</span>
                 </button>
 
@@ -94,7 +97,6 @@ export const Navbar = () => {
                     className="position-absolute end-0 mt-2 bg-white rounded-4 shadow border p-3"
                     style={{ width: "260px", zIndex: 1050 }}
                   >
-                    {/* Botón X para cerrar el menú (como en el wireframe) */}
                     <div className="d-flex justify-content-end mb-2">
                       <button
                         className="btn btn-sm btn-light"
@@ -104,7 +106,7 @@ export const Navbar = () => {
                       </button>
                     </div>
 
-                    {/* Links de navegación según el rol */}
+                    {/* Links según el rol */}
                     {opcionesMenu.map((opcion) => (
                       <Link
                         key={opcion.texto}
@@ -119,13 +121,9 @@ export const Navbar = () => {
 
                     <hr />
 
-                    {/* Cerrar sesión: no es una página, solo limpia el usuario */}
                     <button
                       className="btn btn-outline-danger w-100 d-flex align-items-center gap-2"
-                      onClick={() => {
-                        setMenuUsuarioAbierto(false);
-                        setUsuario(null);
-                      }}
+                      onClick={cerrarSesion}
                     >
                       <span className="material-symbols-outlined fs-5">logout</span>
                       Cerrar sesión
@@ -134,10 +132,14 @@ export const Navbar = () => {
                 )}
               </div>
             ) : (
-              // Usuario sin login: botones de acceso
+              // Usuario sin login: botones que llevan al login y al registro
               <div className="d-flex gap-2">
-                <button className="btn btn-outline-primary fw-semibold">Iniciar Sesión</button>
-                <button className="btn btn-primary fw-semibold">Registrarse</button>
+                <Link to="/login" className="btn btn-outline-primary fw-semibold">
+                  Iniciar Sesión
+                </Link>
+                <Link to="/registro" className="btn btn-primary fw-semibold">
+                  Registrarse
+                </Link>
               </div>
             )}
           </div>
@@ -146,3 +148,5 @@ export const Navbar = () => {
     </nav>
   );
 };
+
+export default Navbar;

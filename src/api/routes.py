@@ -1,10 +1,11 @@
-from flask import request, jsonify, Blueprint
+from flask import request, jsonify, Blueprint, current_app
 from api.models import db, Client, Doctor, Appointment, Availability, Notification
 from api.utils import APIException
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 
 api = Blueprint('api', __name__)
@@ -19,32 +20,82 @@ def handle_hello():
     }), 200
 
 
+@api.route("/me", methods=["GET"])
+@jwt_required()
+def get_me():
+    user_id = int(get_jwt_identity())
+    role = get_jwt()["role"]
+
+    if role == "client":
+        client = Client.query.get(user_id)
+        if client is None:
+            return jsonify({"message": "Client not found"}), 404
+        return jsonify({
+            "message": "User retrieved",
+            "role": "client",
+            "user": client.serialize()
+        }), 200
+
+    if role == "doctor":
+        doctor = Doctor.query.get(user_id)
+        if doctor is None:
+            return jsonify({"message": "Doctor not found"}), 404
+        return jsonify({
+            "message": "User retrieved",
+            "role": "doctor",
+            "user": doctor.serialize()
+        }), 200
+
+    return jsonify({"message": "Invalid role"}), 403
+
 @api.route("/signup/client", methods=["POST"])
 def signup_client():
-    body = request.get_json()
-    if body is None:
+    body = request.get_json(silent=True)
+    if not body:
         return jsonify({"message": "Body is required"}), 400
 
     required_fields = ["name", "email", "password", "phone_number", "address"]
+    clean_data = {
+        field: str(body.get(field, "")).strip()
+        for field in required_fields
+    }
+
     for field in required_fields:
-        if not body.get(field):
+        if not clean_data[field]:
             return jsonify({"message": f"{field} is required"}), 400
 
-    if Client.query.filter_by(email=body["email"]).first():
-        return jsonify({"message": "Client already exists"}), 400
+    email = clean_data["email"].lower()
+    password = clean_data["password"]
+
+    if len(password) < 6:
+        return jsonify({"message": "Password must have at least 6 characters"}), 400
+
+    if Client.query.filter_by(email=email).first():
+        return jsonify({"message": "Client already exists"}), 409
 
     new_client = Client(
-        name=body["name"],
-        email=body["email"],
-        password=generate_password_hash(body["password"]),
-        phone_number=body["phone_number"],
-        address=body["address"]
+        name=clean_data["name"],
+        email=email,
+        password=generate_password_hash(password),
+        phone_number=clean_data["phone_number"],
+        address=clean_data["address"]
     )
 
-    db.session.add(new_client)
-    db.session.commit()
+    try:
+        db.session.add(new_client)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "Client already exists"}), 409
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("Database error while creating client")
+        return jsonify({"message": "Could not create client"}), 500
 
-    return jsonify({"message": "Client created successfully"}), 201
+    return jsonify({
+        "message": "Client created successfully",
+        "client": new_client.serialize()
+    }), 201
 
 
 @api.route("/signup/doctor", methods=["POST"])
@@ -101,7 +152,7 @@ def login_client():
     if not check_password_hash(client.password, password):
         return jsonify({"message": "Invalid password"}), 401
 
-    access_token = create_access_token(identity=str(client.id))
+    access_token = create_access_token(identity=str(client.id), additional_claims={"role": "client"})
 
     return jsonify({
         "message": "Login successful",
@@ -129,7 +180,7 @@ def login_doctor():
     if not check_password_hash(doctor.password, password):
         return jsonify({"message": "Invalid password"}), 401
 
-    access_token = create_access_token(identity=str(doctor.id))
+    access_token = create_access_token(identity=str(doctor.id), additional_claims={"role": "doctor"})
 
     return jsonify({
         "message": "Login successful",
@@ -150,6 +201,8 @@ def create_appointment():
             return jsonify({"message": f"{field} is required"}), 400
 
     client_id = int(get_jwt_identity())
+    if get_jwt()["role"] != "client":
+        return jsonify({"message": "Only clients can create appointments"}), 403
     client = Client.query.get(client_id)
     if client is None:
         return jsonify({"message": "Client not found"}), 404
@@ -208,24 +261,51 @@ def create_appointment():
 @jwt_required()
 def get_appointments():
     user_id = int(get_jwt_identity())
+    role = get_jwt()["role"]
 
-    client = Client.query.get(user_id)
-    if client:
-        appointments = Appointment.query.filter_by(client_id=user_id).order_by(Appointment.date_time.desc()).all()
-        return jsonify({
-            "message": "Appointments retrieved",
-            "appointments": [a.serialize() for a in appointments]
-        }), 200
+    query = Appointment.query
 
-    doctor = Doctor.query.get(user_id)
-    if doctor:
-        appointments = Appointment.query.filter_by(doctor_id=user_id).order_by(Appointment.date_time.desc()).all()
-        return jsonify({
-            "message": "Appointments retrieved",
-            "appointments": [a.serialize() for a in appointments]
-        }), 200
+    if role == "client":
+        query = query.filter_by(client_id=user_id)
+    elif role == "doctor":
+        query = query.filter_by(doctor_id=user_id)
+    else:
+        return jsonify({"message": "Invalid role"}), 403
 
-    return jsonify({"message": "User not found"}), 404
+    estado = request.args.get("estado")
+    if estado:
+        query = query.filter(Appointment.status == estado)
+
+    fecha_desde = request.args.get("fecha_desde")
+    if fecha_desde:
+        try:
+            dt_desde = datetime.fromisoformat(fecha_desde)
+            query = query.filter(Appointment.date_time >= dt_desde)
+        except:
+            return jsonify({"message": "Invalid fecha_desde format. Use ISO format"}), 400
+
+    fecha_hasta = request.args.get("fecha_hasta")
+    if fecha_hasta:
+        try:
+            dt_hasta = datetime.fromisoformat(fecha_hasta)
+            query = query.filter(Appointment.date_time <= dt_hasta)
+        except:
+            return jsonify({"message": "Invalid fecha_hasta format. Use ISO format"}), 400
+
+    appointments = query.order_by(Appointment.date_time.desc()).all()
+
+    result = []
+    for apt in appointments:
+        data = apt.serialize()
+        if role == "client":
+            doctor = Doctor.query.get(apt.doctor_id)
+            data["doctor"] = {"name": doctor.name, "email": doctor.email} if doctor else None
+        elif role == "doctor":
+            client = Client.query.get(apt.client_id)
+            data["client"] = {"name": client.name, "email": client.email} if client else None
+        result.append(data)
+
+    return jsonify(result), 200
 
 
 @api.route("/appointments/<int:id>/status", methods=["PUT"])
@@ -267,6 +347,84 @@ def get_doctors():
     }), 200
 
 
+@api.route("/doctors/<int:id>", methods=["GET"])
+def get_doctor(id):
+    doctor = Doctor.query.get(id)
+    if doctor is None:
+        return jsonify({"message": "Doctor not found"}), 404
+    if not doctor.is_active:
+        return jsonify({"message": "Doctor not available"}), 404
+    return jsonify({
+        "message": "Doctor retrieved",
+        "doctor": doctor.serialize()
+    }), 200
+
+
+@api.route('/doctors/<int:id>/availability', methods=['GET'])
+def get_doctor_availability(id):
+    doctor = Doctor.query.get(id)
+    if doctor is None:
+        return jsonify({"message": "Doctor not found"}), 404
+
+    availabilities = Availability.query.filter_by(doctor_id=id).order_by(Availability.day).all()
+    if not availabilities:
+        return jsonify({
+            "message": "Doctor has no availability configured",
+            "availability": {}
+        }), 200
+
+    dias_nombres = {0: "lunes", 1: "martes", 2: "miercoles", 3: "jueves", 4: "viernes", 5: "sabado", 6: "domingo"}
+
+    citas = Appointment.query.filter(
+        Appointment.doctor_id == id,
+        Appointment.status.in_(["agendada", "pendiente", "confirmada"])
+    ).all()
+
+    horas_ocupadas = {}
+    for cita in citas:
+        fecha = cita.date_time.date()
+        hora = cita.date_time.time()
+        key = (fecha, hora.strftime("%H:%M"))
+        horas_ocupadas[key] = True
+
+    resultado = {}
+
+    for avail in availabilities:
+        nombre_dia = dias_nombres.get(avail.day, f"dia_{avail.day}")
+        horas_totales = []
+
+        horaActual = avail.time_start
+        while horaActual <= avail.time_end:
+            horas_totales.append(horaActual)
+            horaActual = (datetime.combine(datetime.min, horaActual) + timedelta(hours=1)).time()
+
+        horas_libres = []
+        cita_param = request.args.get("fecha")
+        fecha_filtro = None
+        if cita_param:
+            try:
+                fecha_filtro = datetime.fromisoformat(cita_param).date()
+            except:
+                pass
+
+        for hora in horas_totales:
+            hora_str = hora.strftime("%H:%M")
+            if fecha_filtro is not None:
+                if (fecha_filtro, hora) in horas_ocupadas:
+                    continue
+            horas_libres.append(hora_str)
+
+        if nombre_dia in resultado:
+            resultado[nombre_dia].extend(horas_libres)
+        else:
+            resultado[nombre_dia] = horas_libres
+
+    return jsonify({
+        "message": "Availability retrieved",
+        "availability": resultado
+    }), 200
+
+
 @api.route("/doctors/filter", methods=["GET"])
 def filter_doctors_by_specialty():
     specialty = request.args.get("specialty") or request.args.get("especialidad")
@@ -294,8 +452,6 @@ def update_appointment(id):
     if user_id != appointment.client_id and user_id != appointment.doctor_id:
         return jsonify({"message": "You do not own this appointment"}), 403
 
-@api.route("/notifications/appointment-created", methods=["POST"])
-def notify_appointment_created():
     body = request.get_json()
     if body is None:
         return jsonify({"message": "Body is required"}), 400
@@ -338,15 +494,14 @@ def notify_appointment_created():
         if new_status not in ["agendada", "confirmada", "cancelada", "completada"]:
             return jsonify({"message": "Invalid status"}), 400
 
-        doctor = Doctor.query.get(user_id)
-        if doctor and appointment.doctor_id == doctor.id:
+        if get_jwt()["role"] == "doctor" and user_id == appointment.doctor_id:
+            appointment.status = new_status
+            updated = True
+        elif get_jwt()["role"] == "client" and new_status == "cancelada":
             appointment.status = new_status
             updated = True
         else:
-            if new_status != "cancelada":
-                return jsonify({"message": "Clients can only cancel appointments"}), 403
-            appointment.status = new_status
-            updated = True
+            return jsonify({"message": "You are not authorized to change this appointment status"}), 403
 
     if not updated:
         return jsonify({"message": "No changes provided. Send status and/or date_time"}), 400
@@ -361,6 +516,14 @@ def notify_appointment_created():
         "message": "Appointment updated",
         "appointment": appointment.serialize()
     }), 200
+
+
+@api.route("/notifications/appointment-created", methods=["POST"])
+def notify_appointment_created():
+    body = request.get_json()
+    if body is None:
+        return jsonify({"message": "Body is required"}), 400
+
     appointment_id = body.get("appointment_id")
     if appointment_id is None:
         return jsonify({"message": "appointment_id is required"}), 400
@@ -395,3 +558,57 @@ def mark_notification_as_read(id):
         "message": "Notification marked as read",
         "notification": notification.serialize()
     }), 200
+
+
+@api.route("/availability", methods=["POST"])
+@jwt_required()
+def create_availability():
+    if get_jwt()["role"] != "doctor":
+        return jsonify({"message": "Only doctors can add availability"}), 403
+
+    doctor_id = int(get_jwt_identity())
+    body = request.get_json()
+    if body is None:
+        return jsonify({"message": "Body is required"}), 400
+
+    for field in ["day", "time_start", "time_end"]:
+        if body.get(field) is None:
+            return jsonify({"message": f"{field} is required"}), 400
+
+    try:
+        time_start = datetime.strptime(body["time_start"], "%H:%M").time()
+        time_end = datetime.strptime(body["time_end"], "%H:%M").time()
+    except ValueError:
+        return jsonify({"message": "Invalid time format. Use HH:MM"}), 400
+
+    new_availability = Availability(
+        doctor_id=doctor_id,
+        day=int(body["day"]),
+        time_start=time_start,
+        time_end=time_end,
+    )
+    db.session.add(new_availability)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Availability created",
+        "availability": new_availability.serialize()
+    }), 201
+
+
+@api.route("/availability/<int:id>", methods=["DELETE"])
+@jwt_required()
+def delete_availability(id):
+    if get_jwt()["role"] != "doctor":
+        return jsonify({"message": "Only doctors can delete availability"}), 403
+
+    doctor_id = int(get_jwt_identity())
+    availability = Availability.query.get(id)
+    if availability is None:
+        return jsonify({"message": "Availability not found"}), 404
+    if availability.doctor_id != doctor_id:
+        return jsonify({"message": "Unauthorized"}), 403
+
+    db.session.delete(availability)
+    db.session.commit()
+    return jsonify({"message": "Availability deleted"}), 200
