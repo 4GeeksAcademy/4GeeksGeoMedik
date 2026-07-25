@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { HistorialCitas } from "./HistorialCitas";
 import useGlobalReducer from "../hooks/useGlobalReducer";
 
 export const PerfilCliente = () => {
@@ -37,7 +38,16 @@ export const PerfilCliente = () => {
                 <span className="material-symbols-outlined fs-1 text-success">calendar_month</span>
                 <h5 className="fw-bold mt-2">Mis Citas</h5>
                 <p className="text-secondary small">Historial y próximas citas</p>
-                <button className="btn btn-outline-primary w-100">Ver citas</button>
+                <button
+                  className="btn btn-outline-primary w-100"
+                  onClick={() => {
+                    document
+                      .getElementById("historial-citas")
+                      ?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                >
+                  Ver citas
+                </button>
               </div>
             </div>
           </div>
@@ -51,6 +61,10 @@ export const PerfilCliente = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        <div id="historial-citas">
+          <HistorialCitas />
         </div>
 
         <div className="text-center mt-4">

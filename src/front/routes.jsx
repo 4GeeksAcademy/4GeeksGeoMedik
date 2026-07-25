@@ -1,7 +1,7 @@
 import {
-    createBrowserRouter,
-    createRoutesFromElements,
-    Route,
+  createBrowserRouter,
+  createRoutesFromElements,
+  Route,
 } from "react-router-dom";
 import { Layout } from "./pages/Layout";
 import { Home } from "./pages/Home";
@@ -13,19 +13,22 @@ import { PerfilDoctor } from "./pages/PerfilDoctor";
 import { SingleDoctorProfile } from "./pages/SingleDoctorProfile";
 import { DetalleDoctor } from "./components/DetalleDoctor";
 import { Registro } from "./pages/Registro";
+import { HistorialCitas } from "./pages/HistorialCitas";
+import { ListaDoctores } from "./components/ListaDoctores";
 export const router = createBrowserRouter(
-    createRoutesFromElements(
-      <Route path="/" element={<Layout />} errorElement={<h1>Not found!</h1>} >
-        <Route path= "/" element={<Home />} />
-        <Route path="/single/:theId" element={ <Single />} />
-        <Route path="/demo" element={<Demo />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/perfil-cliente" element={<PerfilCliente />} />
-        <Route path="/perfil-doctor" element={<PerfilDoctor />} />
-        <Route path="/doctores" element={<SingleDoctorProfile />} />
-        <Route path="/doctores/:id" element={<DetalleDoctor />} />
-        <Route path="/registro" element={<Registro />} />
-      </Route>
-      
-    )
+  createRoutesFromElements(
+    <Route path="/" element={<Layout />} errorElement={<h1>Not found!</h1>} >
+      <Route path="/" element={<Home />} />
+      <Route path="/single/:theId" element={<Single />} />
+      <Route path="/demo" element={<Demo />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/perfil-cliente" element={<PerfilCliente />} />
+      <Route path="/historial-citas" element={<HistorialCitas />} />
+      <Route path="/perfil-doctor" element={<PerfilDoctor />} />
+      <Route path="/doctores" element={<ListaDoctores />} />
+      <Route path="/doctores/:id" element={<DetalleDoctor />} />
+      <Route path="/registro" element={<Registro />} />
+    </Route>
+
+  )
 );
