@@ -107,3 +107,44 @@ class Appointment(db.Model):
             "reminder_sent": self.reminder_sent,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+class Notification(db.Model):
+    __tablename__ = "notification"
+
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, nullable=False)
+    usuario_tipo = db.Column(db.String(10), nullable=False)
+    tipo = db.Column(db.String(30), nullable=False)
+    mensaje = db.Column(db.String(250), nullable=False)
+    appointment_id = db.Column(
+        db.Integer,
+        db.ForeignKey("appointment.id"),
+        nullable=True
+    )
+    leida = db.Column(db.Boolean, nullable=False, default=False)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.Index(
+            "ix_notification_usuario",
+            "usuario_id",
+            "usuario_tipo",
+            "leida"
+        ),
+    )
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "usuario_id": self.usuario_id,
+            "usuario_tipo": self.usuario_tipo,
+            "tipo": self.tipo,
+            "mensaje": self.mensaje,
+            "appointment_id": self.appointment_id,
+            "leida": self.leida,
+            "fecha_creacion": (
+                self.fecha_creacion.isoformat()
+                if self.fecha_creacion
+                else None
+            ),
+        }

@@ -8,7 +8,7 @@ const LOGO_URL =
 const opcionesDoctor = [
   { texto: "Perfil", icono: "person", ruta: "/perfil-doctor" },
   { texto: "Historial de consultas", icono: "history", ruta: "/historial-consultas" },
-  { texto: "Calendario", icono: "calendar_month", ruta: "/calendario" },
+  { texto: "Calendario", icono: "calendar_month", ruta: "/calendario-doctor" },
 ];
 
 const opcionesCliente = [
