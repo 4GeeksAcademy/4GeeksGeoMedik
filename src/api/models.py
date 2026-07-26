@@ -15,6 +15,7 @@ class Client(db.Model):
     password = db.Column(db.String(255), nullable=False)
     phone_number = db.Column(db.String(20), nullable=False)
     address = db.Column(db.String(255), nullable=False)
+    picture_url = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     register_date = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -25,6 +26,7 @@ class Client(db.Model):
             "email": self.email,
             "phone_number": self.phone_number,
             "address": self.address,
+            "picture_url": self.picture_url,
             "is_active": self.is_active,
             "register_date": self.register_date.isoformat() if self.register_date else None,
         }
@@ -41,7 +43,7 @@ class Doctor(db.Model):
     specialty = db.Column(db.String(120), nullable=False)
     credentials = db.Column(db.String(255), nullable=False)
     id_number = db.Column(db.String(50), unique=True, nullable=False)
-    picture_url = db.Column(db.String(255), nullable=True)
+    picture_url = db.Column(db.Text, nullable=True)
     average_rating = db.Column(db.Float, nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
 

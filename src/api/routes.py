@@ -17,7 +17,7 @@ def crear_notificacion(
     usuario_tipo,
     tipo,
     mensaje,
-    appointment_id=None
+    appointment_id=None 
 ):
     notification = Notification(
         usuario_id=usuario_id,
@@ -681,4 +681,187 @@ def get_notifications():
             for notification in notifications
         ],
         "unread_count": unread_count
+    }), 200
+
+
+# =============================================================================
+#  PERFIL: edicion de datos del usuario logueado
+# =============================================================================
+
+# La foto se guarda como data URL en base64 dentro de picture_url.
+# El front ya la recorta y reescala a 400x400, asi que en la practica
+# ronda los 40-60 KB; este limite es solo una red de seguridad.
+MAX_PICTURE_LENGTH = 3 * 1024 * 1024  # ~3 MB
+
+
+def validar_picture(picture_url):
+    """Valida la foto de perfil. Devuelve (valor_limpio, mensaje_de_error)."""
+    if picture_url is None:
+        return None, None
+
+    picture_url = str(picture_url).strip()
+
+    # Cadena vacia = el usuario quito su foto
+    if picture_url == "":
+        return "", None
+
+    if len(picture_url) > MAX_PICTURE_LENGTH:
+        return None, "La imagen es demasiado grande (maximo 3 MB)"
+
+    es_base64 = picture_url.startswith("data:image/")
+    es_enlace = picture_url.startswith("http://") or picture_url.startswith("https://")
+    if not (es_base64 or es_enlace):
+        return None, "Formato de imagen no valido"
+
+    return picture_url, None
+
+
+def aplicar_cambio_password(usuario, body):
+    """Cambia la contrasena si el body la trae. Devuelve un mensaje de error o None."""
+    new_password = body.get("new_password")
+    if not new_password:
+        return None
+
+    current_password = body.get("current_password") or ""
+    if not check_password_hash(usuario.password, current_password):
+        return "La contrasena actual no es correcta"
+
+    if len(new_password) < 6:
+        return "La contrasena nueva debe tener al menos 6 caracteres"
+
+    usuario.password = generate_password_hash(new_password)
+    return None
+
+
+@api.route("/clients/me", methods=["PUT"])
+@jwt_required()
+def update_client_me():
+    if get_jwt()["role"] != "client":
+        return jsonify({"message": "Only clients can update this profile"}), 403
+
+    client = Client.query.get(int(get_jwt_identity()))
+    if client is None:
+        return jsonify({"message": "Client not found"}), 404
+
+    body = request.get_json(silent=True)
+    if not body:
+        return jsonify({"message": "Body is required"}), 400
+
+    # Campos de texto obligatorios: solo se tocan si vienen en el body
+    for field in ["name", "phone_number", "address"]:
+        if field in body:
+            value = str(body[field]).strip()
+            if not value:
+                return jsonify({"message": f"El campo {field} no puede estar vacio"}), 400
+            setattr(client, field, value)
+
+    # El email tiene que seguir siendo unico
+    if "email" in body:
+        email = str(body["email"]).strip().lower()
+        if not email:
+            return jsonify({"message": "El email no puede estar vacio"}), 400
+        ya_existe = Client.query.filter(
+            Client.email == email,
+            Client.id != client.id
+        ).first()
+        if ya_existe:
+            return jsonify({"message": "Ese email ya esta en uso"}), 409
+        client.email = email
+
+    if "picture_url" in body:
+        picture, error = validar_picture(body["picture_url"])
+        if error:
+            return jsonify({"message": error}), 400
+        client.picture_url = picture or None
+
+    error = aplicar_cambio_password(client, body)
+    if error:
+        return jsonify({"message": error}), 400
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "Ese email ya esta en uso"}), 409
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("Database error while updating client")
+        return jsonify({"message": "No se pudo actualizar el perfil"}), 500
+
+    return jsonify({
+        "message": "Perfil actualizado",
+        "client": client.serialize()
+    }), 200
+
+
+@api.route("/doctors/me", methods=["PUT"])
+@jwt_required()
+def update_doctor_me():
+    if get_jwt()["role"] != "doctor":
+        return jsonify({"message": "Only doctors can update this profile"}), 403
+
+    doctor = Doctor.query.get(int(get_jwt_identity()))
+    if doctor is None:
+        return jsonify({"message": "Doctor not found"}), 404
+
+    body = request.get_json(silent=True)
+    if not body:
+        return jsonify({"message": "Body is required"}), 400
+
+    campos = ["name", "phone_number", "address", "specialty", "credentials"]
+    for field in campos:
+        if field in body:
+            value = str(body[field]).strip()
+            if not value:
+                return jsonify({"message": f"El campo {field} no puede estar vacio"}), 400
+            setattr(doctor, field, value)
+
+    if "email" in body:
+        email = str(body["email"]).strip().lower()
+        if not email:
+            return jsonify({"message": "El email no puede estar vacio"}), 400
+        ya_existe = Doctor.query.filter(
+            Doctor.email == email,
+            Doctor.id != doctor.id
+        ).first()
+        if ya_existe:
+            return jsonify({"message": "Ese email ya esta en uso"}), 409
+        doctor.email = email
+
+    # La cedula profesional tambien es unica
+    if "id_number" in body:
+        id_number = str(body["id_number"]).strip()
+        if not id_number:
+            return jsonify({"message": "La cedula no puede estar vacia"}), 400
+        ya_existe = Doctor.query.filter(
+            Doctor.id_number == id_number,
+            Doctor.id != doctor.id
+        ).first()
+        if ya_existe:
+            return jsonify({"message": "Esa cedula ya esta registrada"}), 409
+        doctor.id_number = id_number
+
+    if "picture_url" in body:
+        picture, error = validar_picture(body["picture_url"])
+        if error:
+            return jsonify({"message": error}), 400
+        doctor.picture_url = picture or None
+
+    error = aplicar_cambio_password(doctor, body)
+    if error:
+        return jsonify({"message": error}), 400
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "El email o la cedula ya estan en uso"}), 409
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("Database error while updating doctor")
+        return jsonify({"message": "No se pudo actualizar el perfil"}), 500
+
+    return jsonify({
+        "message": "Perfil actualizado",
+        "doctor": doctor.serialize()
     }), 200

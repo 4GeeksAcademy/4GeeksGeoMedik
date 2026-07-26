@@ -1,4 +1,20 @@
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Route,
+} from "react-router-dom";
+import { Layout } from "./pages/Layout";
+import { Home } from "./pages/Home";
+import { Single } from "./pages/Single";
+import { Demo } from "./pages/Demo";
+import { Login } from "./pages/Login";
+import { Registro } from "./pages/Registro";
+import { RegistroDoctor } from "./pages/RegistroDoctor";
+import { PerfilCliente } from "./pages/PerfilCliente";
+import { PerfilDoctor } from "./pages/PerfilDoctor";
+import { SingleDoctorProfile } from "./pages/SingleDoctorProfile";
 import { BuscarDoctores } from "./pages/BuscarDoctores";
+import { DetalleDoctor } from "./components/DetalleDoctor";
 import { Consultas } from "./pages/Consultas";
 import { HistorialConsultas } from "./pages/HistorialConsultas";
 import { Calendario } from "./pages/Calendario";

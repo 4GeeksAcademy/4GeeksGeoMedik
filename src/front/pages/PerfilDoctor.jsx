@@ -1,96 +1,635 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { AvatarPerfil } from "../components/AvatarPerfil";
+import { archivoAImagenBase64 } from "../utils/imagen";
 
-export const PerfilDoctor = () => {
-  const [mostrarDatos, setMostrarDatos] = useState(false);
-  const navigate = useNavigate();
+const API = import.meta.env.VITE_BACKEND_URL;
 
-  // Doctor guardado por el login
-  const usuarioGuardado = localStorage.getItem("usuario");
-  const usuario = usuarioGuardado ? JSON.parse(usuarioGuardado) : null;
+const ESTILO_BANNER = {
+  background: "linear-gradient(135deg, #0d6efd 0%, #0a58ca 55%, #084298 100%)",
+  height: "140px",
+};
 
-  useEffect(() => {
-    if (!usuario) navigate("/login");
-  }, []);
+// Datos de contacto
+const CAMPOS_CONTACTO = [
+  { name: "name", label: "Nombre completo", icono: "person", type: "text" },
+  { name: "email", label: "Correo electronico", icono: "mail", type: "email" },
+  { name: "phone_number", label: "Telefono", icono: "call", type: "tel" },
+  { name: "address", label: "Direccion del consultorio", icono: "location_on", type: "text" },
+];
 
-  if (!usuario) return null;
+// Datos profesionales
+const CAMPOS_PROFESIONALES = [
+  { name: "specialty", label: "Especialidad", icono: "stethoscope", type: "text" },
+  { name: "credentials", label: "Credenciales", icono: "school", type: "text" },
+  { name: "id_number", label: "Cedula profesional", icono: "badge", type: "text" },
+];
 
-  return (
-    <section className="bg-light min-vh-100 py-5" style={{ paddingTop: "90px" }}>
-      <div className="container-xl">
-        <div className="d-flex align-items-center gap-3 mb-4">
-          <span
-            className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold fs-4"
-            style={{ width: "56px", height: "56px" }}
-          >
-            {usuario.name.charAt(0).toUpperCase()}
-          </span>
-          <div>
-            <h2 className="fw-bold mb-0">Dr. {usuario.name}</h2>
-            <p className="text-secondary mb-0">
-              {usuario.specialty} - Gestiona tus consultas y horarios
+const TODOS_LOS_CAMPOS = [...CAMPOS_CONTACTO, ...CAMPOS_PROFESIONALES];
+
+const ACCESOS = [
+  {
+    titulo: "Mis consultas",
+    texto: "Citas agendadas con pacientes",
+    icono: "stethoscope",
+    color: "success",
+    ruta: "/consultas",
+  },
+  {
+    titulo: "Mi disponibilidad",
+    texto: "Define tus horarios de atencion",
+    icono: "schedule",
+    color: "primary",
+    ruta: "/calendario-doctor",
+  },
+  {
+    titulo: "Historial",
+    texto: "Consultas completadas y canceladas",
+    icono: "history",
+    color: "warning",
+    ruta: "/historial-consultas",
+  },
+];
+
+// Grupo de campos en modo lectura.
+// Se define fuera del componente para que React no lo remonte en cada render.
+const GrupoLectura = ({ titulo, icono, campos, usuario }) => (
+  <>
+    <div className="d-flex align-items-center gap-2 mb-3">
+      <span className="bg-primary-subtle text-primary rounded-3 d-flex align-items-center justify-content-center"
+            style={{ width: "40px", height: "40px" }}>
+        <span className="material-symbols-outlined">{icono}</span>
+      </span>
+      <h5 className="fw-bold mb-0">{titulo}</h5>
+    </div>
+    <div className="row g-3 mb-4">
+      {campos.map((campo) => (
+        <div className="col-sm-6" key={campo.name}>
+          <div className="border rounded-4 p-3 h-100 bg-body-tertiary">
+            <p className="text-secondary small mb-1 d-flex align-items-center gap-1">
+              <span className="material-symbols-outlined fs-6">{campo.icono}</span>
+              {campo.label}
+            </p>
+            <p className="fw-semibold mb-0 text-break">
+              {usuario[campo.name] || <span className="text-secondary fw-normal">Sin definir</span>}
             </p>
           </div>
         </div>
+      ))}
+    </div>
+  </>
+);
+
+// Grupo de campos en modo edicion. Tambien fuera del componente: si se define
+// dentro, los inputs se remontan en cada tecla y se pierde el foco.
+const GrupoEdicion = ({ titulo, campos, form, onChange }) => (
+  <>
+    <h6 className="fw-bold text-uppercase text-secondary small mb-3">{titulo}</h6>
+    <div className="row g-3 mb-4">
+      {campos.map((campo) => (
+        <div className="col-sm-6" key={campo.name}>
+          <label htmlFor={campo.name} className="form-label fw-semibold small">
+            {campo.label}
+          </label>
+          <div className="input-group">
+            <span className="input-group-text bg-white">
+              <span className="material-symbols-outlined fs-6">{campo.icono}</span>
+            </span>
+            <input
+              id={campo.name}
+              name={campo.name}
+              type={campo.type}
+              className="form-control"
+              value={form[campo.name] || ""}
+              onChange={onChange}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  </>
+);
+
+export const PerfilDoctor = () => {
+  const navigate = useNavigate();
+  const inputFoto = useRef(null);
+
+  const [usuario, setUsuario] = useState(null);
+
+  const [editando, setEditando] = useState(false);
+  const [form, setForm] = useState({});
+  const [foto, setFoto] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+
+  const [error, setError] = useState("");
+  const [exito, setExito] = useState("");
+
+  const [abrirPassword, setAbrirPassword] = useState(false);
+  const [passwords, setPasswords] = useState({ actual: "", nueva: "", repetir: "" });
+  const [errorPassword, setErrorPassword] = useState("");
+  const [exitoPassword, setExitoPassword] = useState("");
+  const [guardandoPassword, setGuardandoPassword] = useState(false);
+
+  const token = localStorage.getItem("token");
+
+  const cerrarSesionPorTokenInvalido = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("rol");
+    localStorage.removeItem("usuario");
+    navigate("/login");
+  };
+
+  useEffect(() => {
+    const guardado = localStorage.getItem("usuario");
+    if (!token || !guardado) {
+      navigate("/login");
+      return;
+    }
+
+    setUsuario(JSON.parse(guardado));
+
+    const traerPerfil = async () => {
+      try {
+        const res = await fetch(`${API}/api/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.status === 401 || res.status === 422) {
+          cerrarSesionPorTokenInvalido();
+          return;
+        }
+
+        const data = await res.json();
+        if (res.ok && data.user) {
+          setUsuario(data.user);
+          localStorage.setItem("usuario", JSON.stringify(data.user));
+        }
+      } catch {
+        // Si falla la red seguimos con los datos de localStorage
+      }
+    };
+
+    traerPerfil();
+  }, []);
+
+  const abrirEdicion = () => {
+    const inicial = {};
+    TODOS_LOS_CAMPOS.forEach((campo) => {
+      inicial[campo.name] = usuario[campo.name] || "";
+    });
+    setForm(inicial);
+    setFoto(usuario.picture_url || null);
+    setError("");
+    setExito("");
+    setEditando(true);
+  };
+
+  const cancelarEdicion = () => {
+    setEditando(false);
+    setError("");
+    if (inputFoto.current) inputFoto.current.value = "";
+  };
+
+  const cambiarCampo = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    setError("");
+  };
+
+  const elegirFoto = async (e) => {
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+
+    try {
+      const base64 = await archivoAImagenBase64(archivo);
+      setFoto(base64);
+      setError("");
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const guardar = async (e) => {
+    e.preventDefault();
+    setError("");
+    setExito("");
+
+    for (const campo of TODOS_LOS_CAMPOS) {
+      if (!String(form[campo.name] || "").trim()) {
+        setError(`El campo "${campo.label}" no puede quedar vacio`);
+        return;
+      }
+    }
+
+    setGuardando(true);
+
+    try {
+      const res = await fetch(`${API}/api/doctors/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ...form, picture_url: foto ?? "" }),
+      });
+
+      if (res.status === 401 || res.status === 422) {
+        cerrarSesionPorTokenInvalido();
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "No se pudieron guardar los cambios");
+        return;
+      }
+
+      setUsuario(data.doctor);
+      localStorage.setItem("usuario", JSON.stringify(data.doctor));
+      setEditando(false);
+      setExito("Tu perfil se actualizo correctamente");
+    } catch {
+      setError("No se pudo conectar con el servidor");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const guardarPassword = async (e) => {
+    e.preventDefault();
+    setErrorPassword("");
+    setExitoPassword("");
+
+    if (!passwords.actual || !passwords.nueva) {
+      setErrorPassword("Completa los dos campos de contrasena");
+      return;
+    }
+    if (passwords.nueva.length < 6) {
+      setErrorPassword("La contrasena nueva debe tener al menos 6 caracteres");
+      return;
+    }
+    if (passwords.nueva !== passwords.repetir) {
+      setErrorPassword("Las contrasenas nuevas no coinciden");
+      return;
+    }
+
+    setGuardandoPassword(true);
+
+    try {
+      const res = await fetch(`${API}/api/doctors/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          current_password: passwords.actual,
+          new_password: passwords.nueva,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrorPassword(data.message || "No se pudo cambiar la contrasena");
+        return;
+      }
+
+      setPasswords({ actual: "", nueva: "", repetir: "" });
+      setAbrirPassword(false);
+      setExitoPassword("Contrasena actualizada");
+    } catch {
+      setErrorPassword("No se pudo conectar con el servidor");
+    } finally {
+      setGuardandoPassword(false);
+    }
+  };
+
+  if (!usuario) {
+    return (
+      <section className="bg-light min-vh-100 d-flex align-items-center justify-content-center">
+        <div className="spinner-border text-primary" role="status" />
+      </section>
+    );
+  }
+
+  return (
+    <section className="bg-light min-vh-100 pb-5" style={{ paddingTop: "90px" }}>
+      <div className="container-xl">
+
+        {/* ---------- Cabecera con foto ---------- */}
+        <div className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+          <div style={ESTILO_BANNER} />
+          <div className="card-body px-4 pb-4 pt-0">
+            <div className="d-flex flex-column flex-md-row align-items-center align-items-md-end gap-3">
+              <div style={{ marginTop: "-56px" }}>
+                <AvatarPerfil
+                  nombre={usuario.name}
+                  fotoUrl={usuario.picture_url}
+                  tamano={112}
+                />
+              </div>
+
+              <div className="flex-grow-1 text-center text-md-start pt-2">
+                <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 flex-wrap">
+                  <h2 className="fw-bold mb-0">Dr. {usuario.name}</h2>
+                  <span className="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle">
+                    {usuario.specialty}
+                  </span>
+                  {usuario.average_rating ? (
+                    <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1">
+                      <span className="material-symbols-outlined fs-6">star</span>
+                      {Number(usuario.average_rating).toFixed(1)}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-secondary mb-0 d-flex align-items-center justify-content-center justify-content-md-start gap-1">
+                  <span className="material-symbols-outlined fs-6">mail</span>
+                  {usuario.email}
+                </p>
+              </div>
+
+              {!editando && (
+                <button
+                  className="btn btn-primary fw-semibold d-flex align-items-center gap-2 px-3"
+                  onClick={abrirEdicion}
+                >
+                  <span className="material-symbols-outlined fs-5">edit</span>
+                  Editar perfil
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {exito && (
+          <div className="alert alert-success d-flex align-items-center gap-2 rounded-4 border-0 shadow-sm">
+            <span className="material-symbols-outlined">check_circle</span>
+            {exito}
+          </div>
+        )}
 
         <div className="row g-4">
-          <div className="col-md-4">
-            <div className="card border-0 shadow-sm rounded-4 p-3 h-100">
-              <div className="card-body text-center">
-                <span className="material-symbols-outlined fs-1 text-primary">person</span>
-                <h5 className="fw-bold mt-2">Mi Perfil</h5>
-                <p className="text-secondary small">Informacion profesional y credenciales</p>
-                <button
-                  className="btn btn-outline-primary w-100"
-                  onClick={() => setMostrarDatos(!mostrarDatos)}
-                >
-                  {mostrarDatos ? "Ocultar datos" : "Ver perfil"}
-                </button>
+          <div className="col-lg-8">
+            <div className="card border-0 shadow-sm rounded-4">
+              <div className="card-body p-4">
 
-                {mostrarDatos && (
-                  <div className="text-start mt-3 border-top pt-3 small">
-                    <p className="mb-1"><strong>Nombre:</strong> {usuario.name}</p>
-                    <p className="mb-1"><strong>Email:</strong> {usuario.email}</p>
-                    <p className="mb-1"><strong>Telefono:</strong> {usuario.phone_number}</p>
-                    <p className="mb-1"><strong>Especialidad:</strong> {usuario.specialty}</p>
-                    <p className="mb-1"><strong>Credenciales:</strong> {usuario.credentials}</p>
-                    <p className="mb-0"><strong>ID:</strong> {usuario.id_number}</p>
+                {/* --- Modo lectura --- */}
+                {!editando && (
+                  <>
+                    <GrupoLectura
+                      titulo="Informacion profesional"
+                      icono="stethoscope"
+                      campos={CAMPOS_PROFESIONALES}
+                      usuario={usuario}
+                    />
+                    <GrupoLectura
+                      titulo="Datos de contacto"
+                      icono="contact_page"
+                      campos={CAMPOS_CONTACTO}
+                      usuario={usuario}
+                    />
+                  </>
+                )}
+
+                {/* --- Modo edicion --- */}
+                {editando && (
+                  <form onSubmit={guardar}>
+                    <h5 className="fw-bold mb-1">Editar perfil</h5>
+                    <p className="text-secondary small mb-4">
+                      Estos datos son los que ven tus pacientes al buscarte.
+                    </p>
+
+                    {error && (
+                      <div className="alert alert-danger d-flex align-items-center gap-2 py-2 small">
+                        <span className="material-symbols-outlined fs-6">error</span>
+                        {error}
+                      </div>
+                    )}
+
+                    {/* Foto de perfil */}
+                    <div className="d-flex align-items-center gap-3 mb-4 p-3 border rounded-4 bg-body-tertiary">
+                      <AvatarPerfil
+                        nombre={form.name}
+                        fotoUrl={foto}
+                        tamano={72}
+                        conBorde={false}
+                        className="border"
+                      />
+                      <div className="flex-grow-1">
+                        <p className="fw-semibold mb-1">Foto de perfil</p>
+                        <p className="text-secondary small mb-2">
+                          JPG, PNG o WEBP. Se recorta en cuadrado automaticamente.
+                        </p>
+                        <div className="d-flex gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
+                            onClick={() => inputFoto.current?.click()}
+                          >
+                            <span className="material-symbols-outlined fs-6">upload</span>
+                            {foto ? "Cambiar foto" : "Subir foto"}
+                          </button>
+                          {foto && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
+                              onClick={() => {
+                                setFoto(null);
+                                if (inputFoto.current) inputFoto.current.value = "";
+                              }}
+                            >
+                              <span className="material-symbols-outlined fs-6">delete</span>
+                              Quitar
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          ref={inputFoto}
+                          type="file"
+                          accept="image/*"
+                          className="d-none"
+                          onChange={elegirFoto}
+                        />
+                      </div>
+                    </div>
+
+                    <GrupoEdicion
+                      titulo="Informacion profesional"
+                      campos={CAMPOS_PROFESIONALES}
+                      form={form}
+                      onChange={cambiarCampo}
+                    />
+                    <GrupoEdicion
+                      titulo="Datos de contacto"
+                      campos={CAMPOS_CONTACTO}
+                      form={form}
+                      onChange={cambiarCampo}
+                    />
+
+                    <div className="d-flex gap-2">
+                      <button
+                        type="submit"
+                        className="btn btn-primary fw-semibold d-flex align-items-center gap-2"
+                        disabled={guardando}
+                      >
+                        {guardando ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm" role="status" />
+                            Guardando...
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined fs-5">save</span>
+                            Guardar cambios
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary fw-semibold"
+                        onClick={cancelarEdicion}
+                        disabled={guardando}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+
+            {/* ---------- Seguridad ---------- */}
+            <div className="card border-0 shadow-sm rounded-4 mt-4">
+              <div className="card-body p-4">
+                <div className="d-flex align-items-center justify-content-between gap-3">
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="bg-primary-subtle text-primary rounded-3 d-flex align-items-center justify-content-center"
+                          style={{ width: "40px", height: "40px" }}>
+                      <span className="material-symbols-outlined">lock</span>
+                    </span>
+                    <div>
+                      <h5 className="fw-bold mb-0">Seguridad</h5>
+                      <p className="text-secondary small mb-0">Cambia tu contrasena</p>
+                    </div>
                   </div>
+                  <button
+                    className="btn btn-outline-primary fw-semibold"
+                    onClick={() => setAbrirPassword(!abrirPassword)}
+                  >
+                    {abrirPassword ? "Cerrar" : "Cambiar"}
+                  </button>
+                </div>
+
+                {exitoPassword && (
+                  <div className="alert alert-success py-2 small mt-3 mb-0">{exitoPassword}</div>
+                )}
+
+                {abrirPassword && (
+                  <form onSubmit={guardarPassword} className="mt-4 border-top pt-4">
+                    {errorPassword && (
+                      <div className="alert alert-danger py-2 small">{errorPassword}</div>
+                    )}
+                    <div className="row g-3">
+                      <div className="col-md-4">
+                        <label className="form-label fw-semibold small">Contrasena actual</label>
+                        <input
+                          type="password"
+                          className="form-control"
+                          value={passwords.actual}
+                          onChange={(e) => setPasswords({ ...passwords, actual: e.target.value })}
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label fw-semibold small">Nueva contrasena</label>
+                        <input
+                          type="password"
+                          className="form-control"
+                          value={passwords.nueva}
+                          onChange={(e) => setPasswords({ ...passwords, nueva: e.target.value })}
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label fw-semibold small">Repetir nueva</label>
+                        <input
+                          type="password"
+                          className="form-control"
+                          value={passwords.repetir}
+                          onChange={(e) => setPasswords({ ...passwords, repetir: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      className="btn btn-primary fw-semibold mt-3"
+                      disabled={guardandoPassword}
+                    >
+                      {guardandoPassword ? "Guardando..." : "Actualizar contrasena"}
+                    </button>
+                  </form>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="col-md-4">
-            <div className="card border-0 shadow-sm rounded-4 p-3 h-100">
-              <div className="card-body text-center">
-                <span className="material-symbols-outlined fs-1 text-success">calendar_month</span>
-                <h5 className="fw-bold mt-2">Mis Consultas</h5>
-                <p className="text-secondary small">Citas agendadas con pacientes</p>
-                <Link to="/consultas" className="btn btn-outline-primary w-100">
-                  Ver consultas
-                </Link>
+          {/* ---------- Columna lateral ---------- */}
+          <div className="col-lg-4">
+            <div className="card border-0 shadow-sm rounded-4 mb-4">
+              <div className="card-body p-4">
+                <h6 className="fw-bold text-uppercase text-secondary small mb-3">Accesos rapidos</h6>
+                <div className="d-grid gap-2">
+                  {ACCESOS.map((acceso) => (
+                    <Link
+                      key={acceso.ruta}
+                      to={acceso.ruta}
+                      className="d-flex align-items-center gap-3 p-3 rounded-4 border text-decoration-none text-body bg-body-tertiary"
+                    >
+                      <span
+                        className={`bg-${acceso.color}-subtle text-${acceso.color} rounded-3 d-flex align-items-center justify-content-center`}
+                        style={{ width: "44px", height: "44px" }}
+                      >
+                        <span className="material-symbols-outlined">{acceso.icono}</span>
+                      </span>
+                      <span className="flex-grow-1">
+                        <span className="d-block fw-semibold">{acceso.titulo}</span>
+                        <span className="d-block text-secondary small">{acceso.texto}</span>
+                      </span>
+                      <span className="material-symbols-outlined text-secondary">chevron_right</span>
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="col-md-4">
-            <div className="card border-0 shadow-sm rounded-4 p-3 h-100">
-              <div className="card-body text-center">
-                <span className="material-symbols-outlined fs-1 text-warning">schedule</span>
-                <h5 className="fw-bold mt-2">Calendario</h5>
-                <p className="text-secondary small">Tus proximas citas ordenadas</p>
-                <Link to="/calendario-doctor" className="btn btn-outline-primary w-100">
-                  Ver calendario
-                </Link>
+            <div className="card border-0 shadow-sm rounded-4">
+              <div className="card-body p-4 d-flex align-items-center gap-3">
+                <span
+                  className={`rounded-3 d-flex align-items-center justify-content-center ${
+                    usuario.is_active
+                      ? "bg-success-subtle text-success"
+                      : "bg-secondary-subtle text-secondary"
+                  }`}
+                  style={{ width: "44px", height: "44px" }}
+                >
+                  <span className="material-symbols-outlined">
+                    {usuario.is_active ? "check_circle" : "pause_circle"}
+                  </span>
+                </span>
+                <div>
+                  <p className="text-secondary small mb-0">Estado del perfil</p>
+                  <p className="fw-semibold mb-0">
+                    {usuario.is_active ? "Visible para pacientes" : "Oculto"}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         <div className="text-center mt-4">
-          <Link to="/" className="text-decoration-none text-secondary">
-            <span className="material-symbols-outlined align-middle fs-5">arrow_back</span> Volver al inicio
+          <Link to="/" className="text-decoration-none text-secondary d-inline-flex align-items-center gap-1">
+            <span className="material-symbols-outlined fs-5">arrow_back</span>
+            Volver al inicio
           </Link>
         </div>
       </div>
