@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { HistorialCitas } from "./HistorialCitas";
 
 export const PerfilCliente = () => {
   const [mostrarDatos, setMostrarDatos] = useState(false);
@@ -64,10 +65,18 @@ export const PerfilCliente = () => {
               <div className="card-body text-center">
                 <span className="material-symbols-outlined fs-1 text-success">calendar_month</span>
                 <h5 className="fw-bold mt-2">Mis Citas</h5>
-                <p className="text-secondary small">Historial y proximas citas</p>
-                <Link to="/consultas" className="btn btn-outline-primary w-100">
+
+                <p className="text-secondary small">Historial y próximas citas</p>
+                <button
+                  className="btn btn-outline-primary w-100"
+                  onClick={() => {
+                    document
+                      .getElementById("historial-citas")
+                      ?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                >
                   Ver citas
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -84,6 +93,10 @@ export const PerfilCliente = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        <div id="historial-citas">
+          <HistorialCitas />
         </div>
 
         <div className="text-center mt-4">
