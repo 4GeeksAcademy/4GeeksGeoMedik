@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AvatarPerfil } from "../components/AvatarPerfil";
+import { HistorialCitas } from "./HistorialCitas";
 import { archivoAImagenBase64 } from "../utils/imagen";
 
 const API = import.meta.env.VITE_BACKEND_URL;
@@ -22,10 +23,10 @@ const CAMPOS = [
 const ACCESOS = [
   {
     titulo: "Mis citas",
-    texto: "Consultas agendadas y pasadas",
+    texto: "Historial y proximas citas",
     icono: "event_available",
     color: "success",
-    ruta: "/consultas",
+    ancla: "historial-citas",
   },
   {
     titulo: "Calendario",
@@ -540,25 +541,52 @@ export const PerfilCliente = () => {
               <div className="card-body p-4">
                 <h6 className="fw-bold text-uppercase text-secondary small mb-3">Accesos rapidos</h6>
                 <div className="d-grid gap-2">
-                  {ACCESOS.map((acceso) => (
-                    <Link
-                      key={acceso.ruta}
-                      to={acceso.ruta}
-                      className="d-flex align-items-center gap-3 p-3 rounded-4 border text-decoration-none text-body bg-body-tertiary"
-                    >
-                      <span
-                        className={`bg-${acceso.color}-subtle text-${acceso.color} rounded-3 d-flex align-items-center justify-content-center`}
-                        style={{ width: "44px", height: "44px" }}
-                      >
-                        <span className="material-symbols-outlined">{acceso.icono}</span>
-                      </span>
-                      <span className="flex-grow-1">
-                        <span className="d-block fw-semibold">{acceso.titulo}</span>
-                        <span className="d-block text-secondary small">{acceso.texto}</span>
-                      </span>
-                      <span className="material-symbols-outlined text-secondary">chevron_right</span>
-                    </Link>
-                  ))}
+                  {ACCESOS.map((acceso) => {
+                    const contenido = (
+                      <>
+                        <span
+                          className={`bg-${acceso.color}-subtle text-${acceso.color} rounded-3 d-flex align-items-center justify-content-center`}
+                          style={{ width: "44px", height: "44px" }}
+                        >
+                          <span className="material-symbols-outlined">{acceso.icono}</span>
+                        </span>
+                        <span className="flex-grow-1">
+                          <span className="d-block fw-semibold">{acceso.titulo}</span>
+                          <span className="d-block text-secondary small">{acceso.texto}</span>
+                        </span>
+                        <span className="material-symbols-outlined text-secondary">
+                          {acceso.ancla ? "expand_more" : "chevron_right"}
+                        </span>
+                      </>
+                    );
+
+                    const clases =
+                      "d-flex align-items-center gap-3 p-3 rounded-4 border text-decoration-none text-body bg-body-tertiary text-start";
+
+                    // El historial vive en esta misma pagina, asi que hacemos scroll
+                    if (acceso.ancla) {
+                      return (
+                        <button
+                          key={acceso.ancla}
+                          type="button"
+                          className={`btn ${clases} w-100`}
+                          onClick={() =>
+                            document
+                              .getElementById(acceso.ancla)
+                              ?.scrollIntoView({ behavior: "smooth" })
+                          }
+                        >
+                          {contenido}
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <Link key={acceso.ruta} to={acceso.ruta} className={clases}>
+                        {contenido}
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -578,6 +606,11 @@ export const PerfilCliente = () => {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Historial de citas incrustado (viene de la rama developer) */}
+        <div id="historial-citas" className="mt-4">
+          <HistorialCitas />
         </div>
 
         <div className="text-center mt-4">
