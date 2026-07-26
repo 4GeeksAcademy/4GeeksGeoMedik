@@ -25,6 +25,7 @@ export const CalendarioDoctor = () => {
         `${import.meta.env.VITE_BACKEND_URL}/api/doctors/${usuario.id}/availability`
       );
       const data = await res.json();
+      console.log(data)
       if (res.ok) setDisponibilidades(data.availabilities);
     } catch {
       setError("No se pudo conectar con el servidor");
@@ -171,7 +172,7 @@ export const CalendarioDoctor = () => {
               </div>
             )}
 
-            {!cargando && disponibilidades.length === 0 && (
+            {!cargando && disponibilidades && disponibilidades.length === 0 && (
               <div className="card border-0 shadow-sm rounded-4 p-5 text-center">
                 <span className="material-symbols-outlined fs-1 text-secondary">schedule</span>
                 <p className="fw-semibold mt-2 mb-1">Aun no tienes horarios definidos</p>
@@ -181,7 +182,7 @@ export const CalendarioDoctor = () => {
               </div>
             )}
 
-            {disponibilidades.map((horario) => (
+            {disponibilidades && disponibilidades.map((horario) => ( 
               <div key={horario.id} className="card border-0 shadow-sm rounded-4 mb-3">
                 <div className="card-body d-flex align-items-center gap-3">
                   <div

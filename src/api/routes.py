@@ -4,7 +4,7 @@ from api.utils import APIException
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 
@@ -260,28 +260,28 @@ def create_appointment():
         status="agendada"
     )
 
-   db.session.add(new_appointment)
+    db.session.add(new_appointment)
 
-try:
-    db.session.flush()
+    try:
+        db.session.flush()
 
-    appointment_date = date_obj.strftime("%d/%m/%Y")
-    appointment_time = date_obj.strftime("%H:%M")
+        appointment_date = date_obj.strftime("%d/%m/%Y")
+        appointment_time = date_obj.strftime("%H:%M")
 
-    message = (
-        f"Nueva cita agendada por {client.name} "
-        f"el {appointment_date} a las {appointment_time}"
-    )
+        message = (
+            f"Nueva cita agendada por {client.name} "
+            f"el {appointment_date} a las {appointment_time}"
+        )
 
-    crear_notificacion(
-        usuario_id=doctor.id,
-        usuario_tipo="doctor",
-        tipo="nueva_cita",
-        mensaje=message,
-        appointment_id=new_appointment.id
-    )
+        crear_notificacion(
+            usuario_id=doctor.id,
+            usuario_tipo="doctor",
+            tipo="nueva_cita",
+            mensaje=message,
+            appointment_id=new_appointment.id
+        )
 
-    db.session.commit()
+        db.session.commit()
     
     except Exception as e:
         db.session.rollback()
@@ -651,7 +651,7 @@ def delete_availability(id):
 
     
 
-    @api.route("/notifications", methods=["GET"])
+@api.route("/notifications", methods=["GET"])
 @jwt_required()
 def get_notifications():
     user_id = int(get_jwt_identity())
