@@ -126,23 +126,36 @@ def signup_doctor():
         if not body.get(field):
             return jsonify({"message": f"{field} is required"}), 400
 
-    if Doctor.query.filter_by(email=body["email"]).first():
+    email = body["email"].strip().lower()
+    id_number = body["id_number"].strip()
+
+    if Doctor.query.filter_by(email=email).first():
         return jsonify({"message": "Doctor already exists"}), 400
+    if Doctor.query.filter_by(id_number=id_number).first():
+        return jsonify({"message": "Professional ID already exists"}), 409
 
     new_doctor = Doctor(
-        name=body["name"],
-        email=body["email"],
+        name=body["name"].strip(),
+        email=email,
         password=generate_password_hash(body["password"]),
-        phone_number=body["phone_number"],
-        address=body["address"],
-        specialty=body["specialty"],
-        credentials=body["credentials"],
-        id_number=body["id_number"],
+        phone_number=body["phone_number"].strip(),
+        address=body["address"].strip(),
+        specialty=body["specialty"].strip(),
+        credentials=body["credentials"].strip(),
+        id_number=id_number,
         picture_url=body.get("picture_url"),
     )
 
-    db.session.add(new_doctor)
-    db.session.commit()
+    try:
+        db.session.add(new_doctor)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "Doctor already exists"}), 409
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("Database error while creating doctor")
+        return jsonify({"message": "Could not create doctor"}), 500
 
     return jsonify({
         "message": "Doctor created successfully",

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import logoGeoMedic from "../assets/img/geomedic-logo.png";
 
+const API_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
+
 // Campos que pide el endpoint /api/signup/doctor
 const camposFormulario = [
   { name: "name", label: "Nombre completo", tipo: "text", icono: "person", placeholder: "Dr. Juan Perez" },
@@ -58,30 +60,34 @@ export const RegistroDoctor = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/signup/doctor`, {
+      const res = await fetch(`${API_URL}/api/signup/doctor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: form.name,
-          email: form.email,
+          name: form.name.trim(),
+          email: form.email.trim().toLowerCase(),
           password: form.password,
-          phone_number: form.phone_number,
-          address: form.address,
-          specialty: form.specialty,
-          credentials: form.credentials,
-          id_number: form.id_number,
+          phone_number: form.phone_number.trim(),
+          address: form.address.trim(),
+          specialty: form.specialty.trim(),
+          credentials: form.credentials.trim(),
+          id_number: form.id_number.trim(),
         }),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
+        ? await res.json()
+        : {};
 
       if (!res.ok) {
-        setError(data.message || "No se pudo crear la cuenta");
+        setError(data.message || `El servidor respondió con error ${res.status}`);
         return;
       }
 
       navigate("/login");
-    } catch {
+    } catch (error) {
+      console.error("Error al registrar doctor:", error);
       setError("No se pudo conectar con el servidor");
     } finally {
       setLoading(false);

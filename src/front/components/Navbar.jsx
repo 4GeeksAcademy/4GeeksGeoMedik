@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import logoGeoMedic from "../assets/img/geomedic-logo.png";
 import { NotificacionesPanel } from "./NotificacionesPanel";
+
+const API_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
 
 // Opciones del menú desplegable según el rol
 const opcionesDoctor = [
@@ -18,6 +20,9 @@ const opcionesCliente = [
 
 export const Navbar = () => {
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
+  const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [noLeidas, setNoLeidas] = useState(0);
   const [panelNotifAbierto, setPanelNotifAbierto] = useState(false);
   const navigate = useNavigate();
 
@@ -26,8 +31,61 @@ export const Navbar = () => {
   const rol = localStorage.getItem("rol");
   const usuarioGuardado = localStorage.getItem("usuario");
   const usuario = usuarioGuardado ? JSON.parse(usuarioGuardado) : null;
+  const token = localStorage.getItem("token");
 
   const opcionesMenu = rol === "doctor" ? opcionesDoctor : opcionesCliente;
+
+  useEffect(() => {
+    if (!token) {
+      setNotificaciones([]);
+      setNoLeidas(0);
+      return;
+    }
+
+    const controlador = new AbortController();
+
+    const cargarNotificaciones = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/notifications`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controlador.signal,
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        setNotificaciones(data.notifications || []);
+        setNoLeidas(data.unread_count || 0);
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error("Error al cargar notificaciones:", error);
+        }
+      }
+    };
+
+    cargarNotificaciones();
+    return () => controlador.abort();
+  }, [token]);
+
+  const marcarComoLeida = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/api/notifications/${id}/read`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+
+      setNotificaciones(
+        notificaciones.map((notificacion) =>
+          notificacion.id === id
+            ? { ...notificacion, leida: true }
+            : notificacion
+        )
+      );
+      setNoLeidas((cantidad) => Math.max(0, cantidad - 1));
+    } catch (error) {
+      console.error("Error al marcar notificacion:", error);
+    }
+  };
 
   const cerrarSesion = () => {
     localStorage.removeItem("token");
@@ -62,13 +120,57 @@ export const Navbar = () => {
             <li className="nav-item">
               <Link to="/" className="nav-link fw-semibold">Home</Link>
             </li>
-            <li className="nav-item">
-              <Link to="/doctores" className="nav-link fw-semibold">Buscar Médicos</Link>
-            </li>
+            {rol !== "doctor" && (
+              <li className="nav-item">
+                <Link to="/doctores" className="nav-link fw-semibold">Buscar Médicos</Link>
+              </li>
+            )}
           </ul>
 
           <div className="d-flex align-items-center gap-3">
             {/* Notificaciones */}
+            {usuario && (
+              <div className="position-relative">
+                <button
+                  className="btn btn-light rounded-circle position-relative"
+                  onClick={() => setNotificacionesAbiertas(!notificacionesAbiertas)}
+                >
+                  <span className="material-symbols-outlined align-middle">notifications</span>
+                  {noLeidas > 0 && (
+                    <span className="position-absolute top-0 end-0 p-1 bg-danger rounded-circle border border-white"></span>
+                  )}
+                </button>
+
+                {notificacionesAbiertas && (
+                  <div
+                    className="position-absolute end-0 mt-2 bg-white rounded-4 shadow border p-3"
+                    style={{ width: "320px", zIndex: 1050 }}
+                  >
+                    <h6 className="fw-bold mb-3">Notificaciones</h6>
+                    {notificaciones.length === 0 ? (
+                      <p className="text-secondary small mb-0">No tienes notificaciones.</p>
+                    ) : (
+                      notificaciones.map((notificacion) => (
+                        <div
+                          key={notificacion.id}
+                          className="border-bottom pb-2 mb-2"
+                        >
+                          <p className="small mb-2">{notificacion.mensaje}</p>
+                          {!notificacion.leida && (
+                            <button
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={() => marcarComoLeida(notificacion.id)}
+                            >
+                              Marcar como leida
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="position-relative">
               <button
                 className="btn btn-light rounded-circle position-relative"
