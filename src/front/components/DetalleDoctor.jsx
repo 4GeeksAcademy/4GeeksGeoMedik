@@ -3,13 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ModalConfirmacion } from "./ModalConfirmacion";
 
 const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const DIAS_API = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
 
 export const DetalleDoctor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const [doctor, setDoctor] = useState(null);
-  const [availabilities, setAvailabilities] = useState([]);
+  const [availabilities, setAvailabilities] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [diaSel, setDiaSel] = useState(null);
@@ -36,7 +37,7 @@ export const DetalleDoctor = () => {
       .then(([docRes, availRes]) => {
         if (docRes.doctor) setDoctor(docRes.doctor);
         else setError(docRes.message || "Doctor no encontrado");
-        if (availRes.availabilities) setAvailabilities(availRes.availabilities);
+        if (availRes.availability) setAvailabilities(availRes.availability);
       })
       .catch((err) => {
         // Al desmontar cancelamos las peticiones; ese error no es un fallo real
@@ -49,17 +50,6 @@ export const DetalleDoctor = () => {
 
     return () => controlador.abort();
   }, [id]);
-
-  const generarHoras = (start, end) => {
-    const horas = [];
-    let [h, m] = start.split(":").map(Number);
-    const [he] = end.split(":").map(Number);
-    while (h < he) {
-      horas.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-      h += 1;
-    }
-    return horas;
-  };
 
   const seleccionarHora = (dia, hora) => {
     setDiaSel(dia);
@@ -170,24 +160,24 @@ export const DetalleDoctor = () => {
       <div className="row">
         <div className="col-md-7">
           <h4 className="fw-bold mb-3">Disponibilidad</h4>
-          {availabilities.length === 0 ? (
+          {Object.keys(availabilities).length === 0 ? (
             <div className="alert alert-info">No hay disponibilidad registrada.</div>
           ) : (
             <div className="row g-3">
-              {availabilities.map((a) => {
-                const horas = generarHoras(a.time_start, a.time_end);
+              {Object.entries(availabilities).map(([dia, horas]) => {
+                const numeroDia = DIAS_API.indexOf(dia);
                 return (
-                  <div key={a.id} className="col-md-6">
+                  <div key={dia} className="col-md-6">
                     <div className="card h-100">
                       <div className="card-header bg-light fw-semibold">
-                        {DIAS[a.day] || `Día ${a.day}`}
+                        {DIAS[numeroDia]}
                       </div>
                       <div className="card-body d-flex flex-wrap gap-2">
                         {horas.map((h) => (
                           <button
                             key={h}
                             className="btn btn-outline-primary btn-sm"
-                            onClick={() => seleccionarHora(a.day, h)}
+                            onClick={() => seleccionarHora(numeroDia, h)}
                           >
                             {h}
                           </button>
