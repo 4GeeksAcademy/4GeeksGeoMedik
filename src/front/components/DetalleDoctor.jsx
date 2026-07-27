@@ -22,18 +22,32 @@ export const DetalleDoctor = () => {
 
   useEffect(() => {
     if (!id) return;
+
+    const controlador = new AbortController();
+    const base = import.meta.env.VITE_BACKEND_URL;
     setLoading(true);
+
     Promise.all([
-      fetch(`/api/doctors/${id}`).then((r) => r.json()),
-      fetch(`/api/doctors/${id}/availability`).then((r) => r.json()),
+      fetch(`${base}/api/doctors/${id}`, { signal: controlador.signal }).then((r) => r.json()),
+      fetch(`${base}/api/doctors/${id}/availability`, { signal: controlador.signal }).then((r) =>
+        r.json()
+      ),
     ])
       .then(([docRes, availRes]) => {
         if (docRes.doctor) setDoctor(docRes.doctor);
         else setError(docRes.message || "Doctor no encontrado");
         if (availRes.availabilities) setAvailabilities(availRes.availabilities);
       })
-      .catch(() => setError("Error al cargar los datos"))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        // Al desmontar cancelamos las peticiones; ese error no es un fallo real
+        if (err.name === "AbortError") return;
+        setError("Error al cargar los datos");
+      })
+      .finally(() => {
+        if (!controlador.signal.aborted) setLoading(false);
+      });
+
+    return () => controlador.abort();
   }, [id]);
 
   const generarHoras = (start, end) => {

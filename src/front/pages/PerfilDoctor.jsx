@@ -148,10 +148,13 @@ export const PerfilDoctor = () => {
 
     setUsuario(JSON.parse(guardado));
 
+    const controlador = new AbortController();
+
     const traerPerfil = async () => {
       try {
         const res = await fetch(`${API}/api/me`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: controlador.signal,
         });
 
         if (res.status === 401 || res.status === 422) {
@@ -166,10 +169,12 @@ export const PerfilDoctor = () => {
         }
       } catch {
         // Si falla la red seguimos con los datos de localStorage
+        // (si fue por desmontar, tampoco hay nada que hacer)
       }
     };
 
     traerPerfil();
+    return () => controlador.abort();
   }, []);
 
   const abrirEdicion = () => {

@@ -17,10 +17,13 @@ export const Calendario = () => {
       return;
     }
 
+    const controlador = new AbortController();
+
     const traerCitas = async () => {
       try {
         const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: controlador.signal,
         });
         const data = await res.json();
 
@@ -34,14 +37,17 @@ export const Calendario = () => {
           .filter((cita) => cita.status === "agendada" || cita.status === "confirmada")
           .sort((a, b) => new Date(a.date_time) - new Date(b.date_time));
         setCitas(proximas);
-      } catch {
+      } catch (err) {
+        // Al desmontar cancelamos la peticion; ese error no es un fallo real
+        if (err.name === "AbortError") return;
         setError("No se pudo conectar con el servidor");
       } finally {
-        setCargando(false);
+        if (!controlador.signal.aborted) setCargando(false);
       }
     };
 
     traerCitas();
+    return () => controlador.abort();
   }, []);
 
   return (

@@ -14,10 +14,12 @@ export const ListaDoctores = () => {
 
   // Fetch all doctors on component mount
   useEffect(() => {
+    const controlador = new AbortController();
+
     const fetchDoctors = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/doctors');
+        const response = await fetch('/api/doctors', { signal: controlador.signal });
         if (!response.ok) {
           throw new Error('Failed to fetch doctors');
         }
@@ -26,14 +28,17 @@ export const ListaDoctores = () => {
         setFilteredDoctors(data);
         setError(null);
       } catch (err) {
+        // Al desmontar cancelamos la peticion; ese error no es un fallo real
+        if (err.name === 'AbortError') return;
         setError('Error loading doctors. Please try again later.');
         console.error('Error fetching doctors:', err);
       } finally {
-        setIsLoading(false);
+        if (!controlador.signal.aborted) setIsLoading(false);
       }
     };
 
     fetchDoctors();
+    return () => controlador.abort();
   }, []);
 
   // Filter doctors when search term or selected specialty changes

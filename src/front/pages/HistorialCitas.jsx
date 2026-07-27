@@ -10,14 +10,16 @@ export const HistorialCitas = () => {
   const [procesando, setProcesando] = useState(false);
 
   useEffect(() => {
-    cargarCitas();
+    const controlador = new AbortController();
+    cargarCitas(controlador.signal);
+    return () => controlador.abort();
   }, []);
 
   const obtenerToken = () => {
     return localStorage.getItem("token");
   };
 
-  const cargarCitas = async () => {
+  const cargarCitas = async (signal) => {
     try {
       setLoading(true);
       setError("");
@@ -36,6 +38,7 @@ export const HistorialCitas = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          signal,
         }
       );
 
@@ -53,11 +56,13 @@ export const HistorialCitas = () => {
 
       setCitas(listaCitas);
     } catch (error) {
+      // Al desmontar cancelamos la peticion; ese error no es un fallo real
+      if (error.name === "AbortError") return;
       console.error("Error al cargar citas:", error);
       setError(error.message);
       setCitas([]);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 

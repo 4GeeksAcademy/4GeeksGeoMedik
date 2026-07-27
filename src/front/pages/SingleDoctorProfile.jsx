@@ -9,11 +9,15 @@ export const SingleDoctorProfile = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    const controlador = new AbortController();
+
     const fetchDoctor = async () => {
       try {
         setIsLoading(true);
-        // TODO: Reemplazar con tu URL real de la API o baseUrl + /api/doctors/${id}
-        const response = await fetch(`/api/doctors/${id}`);
+        const response = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/doctors/${id}`,
+          { signal: controlador.signal }
+        );
         
         if (!response.ok) {
           throw new Error('Doctor no encontrado');
@@ -23,16 +27,20 @@ export const SingleDoctorProfile = () => {
         setDoctor(data);
         setError(null);
       } catch (err) {
+        // Al desmontar cancelamos la peticion; ese error no es un fallo real
+        if (err.name === 'AbortError') return;
         setError(err.message || 'Error al cargar doctor');
         console.error('Error fetching doctor:', err);
       } finally {
-        setIsLoading(false);
+        if (!controlador.signal.aborted) setIsLoading(false);
       }
     };
 
     if (id) {
       fetchDoctor();
     }
+
+    return () => controlador.abort();
   }, [id]);
 
   const handleBackToList = () => {
