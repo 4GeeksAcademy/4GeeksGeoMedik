@@ -2,6 +2,22 @@ import { useState, useEffect, useCallback } from "react";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+const requestNotificationPermission = async () => {
+  if (!("Notification" in window)) return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") return false;
+
+  const permission = await Notification.requestPermission();
+  return permission === "granted";
+};
+
+const sendBrowserNotification = (title, body) => {
+  if (!("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+
+  new Notification(title, { body, icon: "/4geeks.ico" });
+};
+
 export const ReminderBanner = () => {
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +62,24 @@ export const ReminderBanner = () => {
         })
       );
 
-      setReminders(conDetalles.filter(Boolean));
+      const filtro = conDetalles.filter(Boolean);
+      setReminders(filtro);
+
+      const permisionConcedida = await requestNotificationPermission();
+      if (permisionConcedida && filtro.length > 0) {
+        const cita = filtro[0].appointment;
+        if (cita) {
+          const fecha = new Date(cita.date_time);
+          const hora = fecha.toLocaleTimeString("es-ES", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          sendBrowserNotification(
+            "Recordatorio de cita",
+            `Tienes una cita hoy a las ${hora} con ${cita.doctor?.name || "tu médico"}`
+          );
+        }
+      }
     } catch (err) {
       console.error("Error al cargar recordatorios:", err);
     } finally {
