@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-
-const LOGO_URL =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuBXLAcu67FCpeTOFCHu5mQFJ9wQj6Ww-vq0dM-jbr4MIHmAUAw0p4w8ilzfe24KLrkTT3E2VxADyVS3g_2XxJZ6vvDfruAkcBFO6cvcufmUNGFSwxyr303Z5UVHktzH4FoYhuQ39k7TUasOWG0inz-hWcb5BAYPpIXCLS_Bv9V4uBgV5fDHEudxEhmZI4UfJpjEGIV3pfR14aSAgHa9Y7FuKtwLbnfJNFWnNZKlRlB8O5K8uuBEjeXO3sxW_0qysEUXKqNDX2KVk5E";
+import logoGeoMedic from "../assets/img/geomedic-logo.png";
 
 const API_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
 
@@ -93,7 +91,7 @@ export const Registro = () => {
         <div className="row justify-content-center">
           <div className="col-md-8 col-lg-6">
             <div className="text-center mb-4">
-              <img src={LOGO_URL} alt="GeoMedic Logo" width="72" height="72" className="mb-3" />
+              <img src={logoGeoMedic} alt="GeoMedic Logo" width="72" height="72" className="mb-3" />
               <h1 className="fw-bold">Crear Cuenta</h1>
               <p className="text-secondary">Regístrate para agendar tus citas médicas</p>
             </div>

@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
-const LOGO_URL =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuBXLAcu67FCpeTOFCHu5mQFJ9wQj6Ww-vq0dM-jbr4MIHmAUAw0p4w8ilzfe24KLrkTT3E2VxADyVS3g_2XxJZ6vvDfruAkcBFO6cvcufmUNGFSwxyr303Z5UVHktzH4FoYhuQ39k7TUasOWG0inz-hWcb5BAYPpIXCLS_Bv9V4uBgV5fDHEudxEhmZI4UfJpjEGIV3pfR14aSAgHa9Y7FuKtwLbnfJNFWnNZKlRlB8O5K8uuBEjeXO3sxW_0qysEUXKqNDX2KVk5E";
+import logoGeoMedic from "../assets/img/geomedic-logo.png";
 
 // Opciones del menú desplegable según el rol
 const opcionesDoctor = [
@@ -42,7 +40,7 @@ export const Navbar = () => {
       <div className="container-xl">
         {/* Logo */}
         <Link to="/" className="navbar-brand d-flex align-items-center gap-2">
-          <img src={LOGO_URL} alt="Logo de GeoMedic" width="40" height="40" />
+          <img src={logoGeoMedic} alt="Logo de GeoMedic" width="40" height="40" />
           <span className="fs-4 fw-bold text-primary">GeoMedic</span>
         </Link>
 
