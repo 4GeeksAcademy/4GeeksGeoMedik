@@ -20,8 +20,6 @@ const opcionesCliente = [
 
 export const Navbar = () => {
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
-  const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
-  const [notificaciones, setNotificaciones] = useState([]);
   const [noLeidas, setNoLeidas] = useState(0);
   const [panelNotifAbierto, setPanelNotifAbierto] = useState(false);
   const navigate = useNavigate();
@@ -46,14 +44,13 @@ export const Navbar = () => {
 
     const cargarNotificaciones = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/notifications`, {
+        const res = await fetch(`${API_URL}/api/notifications?solo_no_leidas=true`, {
           headers: { Authorization: `Bearer ${token}` },
           signal: controlador.signal,
         });
         if (!res.ok) return;
 
         const data = await res.json();
-        setNotificaciones(data.notifications || []);
         setNoLeidas(data.unread_count || 0);
       } catch (error) {
         if (error.name !== "AbortError") {
@@ -63,51 +60,13 @@ export const Navbar = () => {
     };
 
     cargarNotificaciones();
-    return () => controlador.abort();
+    const intervalo = setInterval(cargarNotificaciones, 30000);
+
+    return () => {
+      clearInterval(intervalo);
+      controlador.abort();
+    };
   }, [token]);
-
-  const marcarComoLeida = async (id) => {
-    try {
-      const res = await fetch(`${API_URL}/api/notifications/${id}/read`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return;
-
-      setNotificaciones(
-        notificaciones.map((notificacion) =>
-          notificacion.id === id
-            ? { ...notificacion, leida: true }
-            : notificacion
-        )
-      );
-      setNoLeidas((cantidad) => Math.max(0, cantidad - 1));
-    } catch (error) {
-      console.error("Error al marcar notificacion:", error);
-    }
-  };
-
-  const eliminarNotificacion = async (notificacion) => {
-    try {
-      const res = await fetch(
-        `${API_URL}/api/notifications/${notificacion.id}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (!res.ok) return;
-
-      setNotificaciones(
-        notificaciones.filter((item) => item.id !== notificacion.id)
-      );
-      if (!notificacion.leida) {
-        setNoLeidas((cantidad) => Math.max(0, cantidad - 1));
-      }
-    } catch (error) {
-      console.error("Error al eliminar notificacion:", error);
-    }
-  };
 
   const cerrarSesion = () => {
     localStorage.removeItem("token");
@@ -155,63 +114,31 @@ export const Navbar = () => {
               <div className="position-relative">
                 <button
                   className="btn btn-light rounded-circle position-relative"
-                  onClick={() => setNotificacionesAbiertas(!notificacionesAbiertas)}
+                  onClick={() => setPanelNotifAbierto(!panelNotifAbierto)}
+                  aria-label="Notificaciones"
                 >
                   <span className="material-symbols-outlined align-middle">notifications</span>
                   {noLeidas > 0 && (
-                    <span className="position-absolute top-0 end-0 p-1 bg-danger rounded-circle border border-white"></span>
+                    <span
+                      className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                      style={{ fontSize: "0.65rem" }}
+                    >
+                      {noLeidas > 99 ? "99+" : noLeidas}
+                    </span>
                   )}
                 </button>
 
-                {notificacionesAbiertas && (
-                  <div
-                    className="position-absolute end-0 mt-2 bg-white rounded-4 shadow border p-3"
-                    style={{ width: "320px", zIndex: 1050 }}
-                  >
-                    <h6 className="fw-bold mb-3">Notificaciones</h6>
-                    {notificaciones.length === 0 ? (
-                      <p className="text-secondary small mb-0">No tienes notificaciones.</p>
-                    ) : (
-                      notificaciones.map((notificacion) => (
-                        <div
-                          key={notificacion.id}
-                          className="border-bottom pb-2 mb-2"
-                        >
-                          <p className="small mb-2">{notificacion.mensaje}</p>
-                          {!notificacion.leida && (
-                            <button
-                              className="btn btn-sm btn-outline-primary me-2"
-                              onClick={() => marcarComoLeida(notificacion.id)}
-                            >
-                              Marcar como leida
-                            </button>
-                          )}
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => eliminarNotificacion(notificacion)}
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                {panelNotifAbierto && (
+                  <NotificacionesPanel
+                    onClose={() => setPanelNotifAbierto(false)}
+                    onMarcarUna={() =>
+                      setNoLeidas((cantidad) => Math.max(0, cantidad - 1))
+                    }
+                    onMarcarTodas={() => setNoLeidas(0)}
+                  />
                 )}
               </div>
             )}
-            <div className="position-relative">
-              <button
-                className="btn btn-light rounded-circle position-relative"
-                onClick={() => setPanelNotifAbierto(!panelNotifAbierto)}
-                aria-label="Notificaciones"
-              >
-                <span className="material-symbols-outlined align-middle">notifications</span>
-                <span className="position-absolute top-0 end-0 p-1 bg-danger rounded-circle border border-white"></span>
-              </button>
-              {panelNotifAbierto && (
-                <NotificacionesPanel onClose={() => setPanelNotifAbierto(false)} />
-              )}
-            </div>
 
             {usuario ? (
               // Usuario logueado: avatar con su inicial que abre el menú desplegable
