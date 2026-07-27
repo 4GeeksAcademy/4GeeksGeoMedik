@@ -24,7 +24,7 @@ function timeAgo(fecha) {
   return `hace ${diffDias} día${diffDias > 1 ? "s" : ""}`;
 }
 
-export const NotificacionesPanel = ({ onClose }) => {
+export const NotificacionesPanel = ({ onClose, onMarcarUna, onMarcarTodas }) => {
   const [notificaciones, setNotificaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [marcandoTodas, setMarcandoTodas] = useState(false);
@@ -74,20 +74,25 @@ export const NotificacionesPanel = ({ onClose }) => {
     };
   }, [cargarNotificaciones]);
 
-  const marcarComoLeida = async (id) => {
+  const marcarComoLeida = async (id, estabaNoLeida = true) => {
     const token = obtenerToken();
     if (!token) return;
     try {
-      await fetch(`${BACKEND_URL}/api/notifications/${id}/read`, {
+      const res = await fetch(`${BACKEND_URL}/api/notifications/${id}/read`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
       });
+      if (!res.ok) return;
+
       setNotificaciones((prev) =>
         prev.map((n) => (n.id === id ? { ...n, leida: true } : n))
       );
+      if (estabaNoLeida) {
+        onMarcarUna?.();
+      }
     } catch (err) {
       console.error("Error al marcar como leída:", err);
     }
@@ -115,6 +120,7 @@ export const NotificacionesPanel = ({ onClose }) => {
         )
       );
       setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })));
+      onMarcarTodas?.();
     } catch (err) {
       console.error("Error al marcar todas como leídas:", err);
     } finally {
@@ -123,7 +129,7 @@ export const NotificacionesPanel = ({ onClose }) => {
   };
 
   const handleClickNotificacion = async (notif) => {
-    await marcarComoLeida(notif.id);
+    await marcarComoLeida(notif.id, !notif.leida);
     onClose?.();
 
     const citaId = notif.appointment_id || notif.cita_id;
