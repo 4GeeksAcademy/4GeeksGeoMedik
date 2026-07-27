@@ -21,6 +21,7 @@ const opcionesCliente = [
 export const Navbar = () => {
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
   const [noLeidas, setNoLeidas] = useState(0);
+  const [notificaciones, setNotificaciones] = useState([]);
   const [panelNotifAbierto, setPanelNotifAbierto] = useState(false);
   const navigate = useNavigate();
 

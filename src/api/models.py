@@ -150,3 +150,80 @@ class Notification(db.Model):
                 else None
             ),
         }
+
+
+class HistoriaClinica(db.Model):
+    """Ficha de salud que rellena el propio cliente.
+
+    Vive en tabla aparte y NO se expone en Client.serialize(): ese objeto se
+    guarda entero en localStorage y lo devuelven varios endpoints, y datos
+    como enfermedades o medicamentos no deben andar dando vueltas por ahi.
+    """
+
+    __tablename__ = "historia_clinica"
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(
+        db.Integer, db.ForeignKey("client.id"), unique=True, nullable=False
+    )
+
+    fecha_nacimiento = db.Column(db.Date, nullable=True)
+    altura_cm = db.Column(db.Integer, nullable=True)
+    peso_kg = db.Column(db.Float, nullable=True)
+    tipo_sangre = db.Column(db.String(5), nullable=True)
+
+    # Las "_comunes" son las casillas marcadas. Se guardan separadas por "|"
+    # (no por coma, que puede aparecer dentro de un item) para no depender
+    # de columnas JSON. El texto libre va en su campo aparte.
+    alergias_comunes = db.Column(db.Text, nullable=True)
+    alergias = db.Column(db.Text, nullable=True)
+    enfermedades_comunes = db.Column(db.Text, nullable=True)
+    enfermedades = db.Column(db.Text, nullable=True)
+    medicamentos = db.Column(db.Text, nullable=True)
+    discapacidades = db.Column(db.Text, nullable=True)
+
+    contacto_emergencia_nombre = db.Column(db.String(120), nullable=True)
+    contacto_emergencia_telefono = db.Column(db.String(20), nullable=True)
+
+    actualizado_en = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    client = db.relationship(
+        "Client", backref=db.backref("historia_clinica", uselist=False)
+    )
+
+    @staticmethod
+    def texto_a_lista(valor):
+        if not valor:
+            return []
+        return [p for p in (x.strip() for x in valor.split("|")) if p]
+
+    @property
+    def completa(self):
+        """Minimo para que un medico se haga una idea del paciente."""
+        return bool(self.fecha_nacimiento and self.altura_cm and self.peso_kg)
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "fecha_nacimiento": (
+                self.fecha_nacimiento.isoformat() if self.fecha_nacimiento else None
+            ),
+            "altura_cm": self.altura_cm,
+            "peso_kg": self.peso_kg,
+            "tipo_sangre": self.tipo_sangre,
+            "alergias_comunes": self.texto_a_lista(self.alergias_comunes),
+            "alergias": self.alergias,
+            "enfermedades_comunes": self.texto_a_lista(self.enfermedades_comunes),
+            "enfermedades": self.enfermedades,
+            "medicamentos": self.medicamentos,
+            "discapacidades": self.discapacidades,
+            "contacto_emergencia_nombre": self.contacto_emergencia_nombre,
+            "contacto_emergencia_telefono": self.contacto_emergencia_telefono,
+            "completa": self.completa,
+            "actualizado_en": (
+                self.actualizado_en.isoformat() if self.actualizado_en else None
+            ),
+        }
