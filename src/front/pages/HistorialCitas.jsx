@@ -9,6 +9,8 @@ export const HistorialCitas = () => {
   const [citaSeleccionada, setCitaSeleccionada] = useState(null);
   const [nuevaFecha, setNuevaFecha] = useState("");
   const [procesando, setProcesando] = useState(false);
+  const [videoError, setVideoError] = useState("");
+  const [abriendoVideo, setAbriendoVideo] = useState(null);
 
   useEffect(() => {
     const controlador = new AbortController();
@@ -207,6 +209,65 @@ export const HistorialCitas = () => {
     return !["cancelada", "completada"].includes(cita.status);
   };
 
+  // La sala se abre 5 minutos antes de la hora y sigue disponible 1 hora despues
+  const MINUTOS_ANTES = 5;
+  const MINUTOS_DESPUES = 60;
+
+  const dentroDeVentana = (cita) => {
+    if (!cita.date_time) return false;
+    const inicio = new Date(cita.date_time).getTime();
+    if (Number.isNaN(inicio)) return false;
+    const ahora = Date.now();
+    return (
+      ahora >= inicio - MINUTOS_ANTES * 60000 &&
+      ahora <= inicio + MINUTOS_DESPUES * 60000
+    );
+  };
+
+  const puedeVideollamada = (cita) =>
+    cita.status === "confirmada" && dentroDeVentana(cita);
+
+  const unirseAVideollamada = async (cita) => {
+    setVideoError("");
+    setAbriendoVideo(cita.id);
+
+    // Abrimos la pestana AHORA, antes del await. Si esperamos a la respuesta,
+    // el navegador ya no la asocia al click y la bloquea como popup.
+    const pestania = window.open("", "_blank", "noopener,noreferrer");
+
+    try {
+      const respuesta = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/appointments/${cita.id}/video`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${obtenerToken()}` },
+        }
+      );
+
+      const data = await respuesta.json();
+
+      if (!respuesta.ok) {
+        throw new Error(
+          data.message || "No se pudo abrir la videollamada."
+        );
+      }
+
+      if (pestania) {
+        pestania.location.href = data.video_link;
+      } else {
+        // El navegador bloqueo la pestana: al menos que no se quede colgado
+        window.location.href = data.video_link;
+      }
+
+      cargarCitas();
+    } catch (error) {
+      if (pestania) pestania.close();
+      setVideoError(error.message);
+    } finally {
+      setAbriendoVideo(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center my-5">
@@ -281,6 +342,12 @@ export const HistorialCitas = () => {
               Completadas
             </button>
           </div>
+
+          {videoError && (
+            <div className="alert alert-warning">
+              {videoError}
+            </div>
+          )}
 
           {error && (
             <div className="alert alert-danger">
@@ -368,17 +435,18 @@ export const HistorialCitas = () => {
                         </>
                       )}
 
-                      {cita.video_link &&
-                        citaPermiteAcciones(cita) && (
-                          <a
-                            href={cita.video_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-success btn-sm"
-                          >
-                            Unirse a videollamada
-                          </a>
-                        )}
+                      {puedeVideollamada(cita) && (
+                        <button
+                          type="button"
+                          className="btn btn-success btn-sm"
+                          disabled={abriendoVideo === cita.id}
+                          onClick={() => unirseAVideollamada(cita)}
+                        >
+                          {abriendoVideo === cita.id
+                            ? "Abriendo..."
+                            : "Unirse a videollamada"}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
