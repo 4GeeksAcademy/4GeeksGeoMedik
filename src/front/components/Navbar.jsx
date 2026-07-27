@@ -85,6 +85,28 @@ export const Navbar = () => {
     }
   };
 
+  const eliminarNotificacion = async (notificacion) => {
+    try {
+      const res = await fetch(
+        `${API_URL}/api/notifications/${notificacion.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!res.ok) return;
+
+      setNotificaciones(
+        notificaciones.filter((item) => item.id !== notificacion.id)
+      );
+      if (!notificacion.leida) {
+        setNoLeidas((cantidad) => Math.max(0, cantidad - 1));
+      }
+    } catch (error) {
+      console.error("Error al eliminar notificacion:", error);
+    }
+  };
+
   const cerrarSesion = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("rol");
@@ -156,12 +178,18 @@ export const Navbar = () => {
                           <p className="small mb-2">{notificacion.mensaje}</p>
                           {!notificacion.leida && (
                             <button
-                              className="btn btn-sm btn-outline-primary"
+                              className="btn btn-sm btn-outline-primary me-2"
                               onClick={() => marcarComoLeida(notificacion.id)}
                             >
                               Marcar como leida
                             </button>
                           )}
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => eliminarNotificacion(notificacion)}
+                          >
+                            Eliminar
+                          </button>
                         </div>
                       ))
                     )}

@@ -30,6 +30,36 @@ def crear_notificacion(
     db.session.add(notification)
 
 
+def crear_notificacion_cancelacion(appointment, role):
+    appointment_date = appointment.date_time.strftime("%d/%m/%Y")
+    appointment_time = appointment.date_time.strftime("%H:%M")
+
+    if role == "doctor":
+        doctor = Doctor.query.get(appointment.doctor_id)
+        crear_notificacion(
+            usuario_id=appointment.client_id,
+            usuario_tipo="cliente",
+            tipo="cita_cancelada",
+            mensaje=(
+                f"{doctor.name} cancelo la cita del {appointment_date} "
+                f"a las {appointment_time}"
+            ),
+            appointment_id=appointment.id
+        )
+    else:
+        client = Client.query.get(appointment.client_id)
+        crear_notificacion(
+            usuario_id=appointment.doctor_id,
+            usuario_tipo="doctor",
+            tipo="cita_cancelada",
+            mensaje=(
+                f"{client.name} cancelo la cita del {appointment_date} "
+                f"a las {appointment_time}"
+            ),
+            appointment_id=appointment.id
+        )
+
+
 @api.route('/hello', methods=['POST', 'GET'])
 def handle_hello():
     return jsonify({
@@ -295,8 +325,8 @@ def create_appointment():
         )
 
         reminder_message = (
-            f"Recordatorio: tienes una cita hoy a las {appointment_time} "
-            f"con {doctor.name}"
+            f"Recordatorio: tienes una cita el {appointment_date} "
+            f"a las {appointment_time} con {doctor.name}"
         )
 
         crear_notificacion(
@@ -374,6 +404,7 @@ def get_appointments():
 @jwt_required()
 def update_appointment_status(id):
     user_id = int(get_jwt_identity())
+    role = get_jwt()["role"]
     appointment = Appointment.query.get(id)
     if appointment is None:
         return jsonify({"message": "Appointment not found"}), 404
@@ -383,16 +414,20 @@ def update_appointment_status(id):
     if new_status not in ["agendada", "confirmada", "cancelada", "completada"]:
         return jsonify({"message": "Valid status is required"}), 400
 
-    doctor = Doctor.query.get(user_id)
-    if doctor and appointment.doctor_id == doctor.id:
+    previous_status = appointment.status
+
+    if role == "doctor" and appointment.doctor_id == user_id:
         appointment.status = new_status
+        if new_status == "cancelada" and previous_status != "cancelada":
+            crear_notificacion_cancelacion(appointment, role)
         db.session.commit()
         return jsonify({"message": "Appointment status updated", "appointment": appointment.serialize()}), 200
 
-    client = Client.query.get(user_id)
-    if client and appointment.client_id == client.id:
+    if role == "client" and appointment.client_id == user_id:
         if new_status == "cancelada":
             appointment.status = new_status
+            if previous_status != "cancelada":
+                crear_notificacion_cancelacion(appointment, role)
             db.session.commit()
             return jsonify({"message": "Appointment cancelled", "appointment": appointment.serialize()}), 200
         return jsonify({"message": "Clients can only cancel appointments"}), 403
@@ -556,14 +591,20 @@ def update_appointment(id):
         if new_status not in ["agendada", "confirmada", "cancelada", "completada"]:
             return jsonify({"message": "Invalid status"}), 400
 
-        if get_jwt()["role"] == "doctor" and user_id == appointment.doctor_id:
+        role = get_jwt()["role"]
+        previous_status = appointment.status
+
+        if role == "doctor" and user_id == appointment.doctor_id:
             appointment.status = new_status
             updated = True
-        elif get_jwt()["role"] == "client" and new_status == "cancelada":
+        elif role == "client" and new_status == "cancelada":
             appointment.status = new_status
             updated = True
         else:
             return jsonify({"message": "You are not authorized to change this appointment status"}), 403
+
+        if new_status == "cancelada" and previous_status != "cancelada":
+            crear_notificacion_cancelacion(appointment, role)
 
     if not updated:
         return jsonify({"message": "No changes provided. Send status and/or date_time"}), 400
@@ -620,6 +661,31 @@ def mark_notification_as_read(id):
         "message": "Notification marked as read",
         "notification": notification.serialize()
     }), 200
+
+
+@api.route("/notifications/<int:id>", methods=["DELETE"])
+@jwt_required()
+def delete_notification(id):
+    user_id = int(get_jwt_identity())
+    role = get_jwt()["role"]
+    user_type = "cliente" if role == "client" else role
+
+    notification = Notification.query.get(id)
+    if notification is None:
+        return jsonify({"message": "Notification not found"}), 404
+
+    if (
+        notification.usuario_id != user_id
+        or notification.usuario_tipo != user_type
+    ):
+        return jsonify({
+            "message": "You are not authorized to delete this notification"
+        }), 403
+
+    db.session.delete(notification)
+    db.session.commit()
+
+    return jsonify({"message": "Notification deleted"}), 200
 
 
 @api.route("/availability", methods=["POST"])
