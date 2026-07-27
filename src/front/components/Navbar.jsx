@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import logoGeoMedic from "../assets/img/geomedic-logo.png";
+import { NotificacionesPanel } from "./NotificacionesPanel";
 
 // Opciones del menú desplegable según el rol
 const opcionesDoctor = [
@@ -17,6 +18,7 @@ const opcionesCliente = [
 
 export const Navbar = () => {
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
+  const [panelNotifAbierto, setPanelNotifAbierto] = useState(false);
   const navigate = useNavigate();
 
   // Leemos la sesión que guardó el Login en localStorage
@@ -67,10 +69,19 @@ export const Navbar = () => {
 
           <div className="d-flex align-items-center gap-3">
             {/* Notificaciones */}
-            <button className="btn btn-light rounded-circle position-relative">
-              <span className="material-symbols-outlined align-middle">notifications</span>
-              <span className="position-absolute top-0 end-0 p-1 bg-danger rounded-circle border border-white"></span>
-            </button>
+            <div className="position-relative">
+              <button
+                className="btn btn-light rounded-circle position-relative"
+                onClick={() => setPanelNotifAbierto(!panelNotifAbierto)}
+                aria-label="Notificaciones"
+              >
+                <span className="material-symbols-outlined align-middle">notifications</span>
+                <span className="position-absolute top-0 end-0 p-1 bg-danger rounded-circle border border-white"></span>
+              </button>
+              {panelNotifAbierto && (
+                <NotificacionesPanel onClose={() => setPanelNotifAbierto(false)} />
+              )}
+            </div>
 
             {usuario ? (
               // Usuario logueado: avatar con su inicial que abre el menú desplegable
