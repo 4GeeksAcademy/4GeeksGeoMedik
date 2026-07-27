@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { Toast } from "./Toast";
 
 export const ModalConfirmacion = ({ abierto, onClose, exito, doctor, dia, hora, fecha, error }) => {
   const navigate = useNavigate();
@@ -16,6 +17,12 @@ export const ModalConfirmacion = ({ abierto, onClose, exito, doctor, dia, hora, 
 
   return (
     <div className="modal d-block" tabIndex="-1" style={{ background: "rgba(0,0,0,0.5)" }}>
+      {exito && (
+        <Toast
+          tipo="exito"
+          mensaje="Cita agendada correctamente"
+        />
+      )}
       <div className="modal-dialog modal-dialog-centered">
         <div className="modal-content">
           <div className="modal-body text-center p-4">

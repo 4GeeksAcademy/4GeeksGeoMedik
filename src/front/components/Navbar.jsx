@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import logoGeoMedic from "../assets/img/geomedic-logo.png";
+import { NotificacionesPanel } from "./NotificacionesPanel";
 
 const API_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
 
@@ -22,6 +23,7 @@ export const Navbar = () => {
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   const [notificaciones, setNotificaciones] = useState([]);
   const [noLeidas, setNoLeidas] = useState(0);
+  const [panelNotifAbierto, setPanelNotifAbierto] = useState(false);
   const navigate = useNavigate();
 
   // Leemos la sesión que guardó el Login en localStorage
@@ -169,6 +171,19 @@ export const Navbar = () => {
                 )}
               </div>
             )}
+            <div className="position-relative">
+              <button
+                className="btn btn-light rounded-circle position-relative"
+                onClick={() => setPanelNotifAbierto(!panelNotifAbierto)}
+                aria-label="Notificaciones"
+              >
+                <span className="material-symbols-outlined align-middle">notifications</span>
+                <span className="position-absolute top-0 end-0 p-1 bg-danger rounded-circle border border-white"></span>
+              </button>
+              {panelNotifAbierto && (
+                <NotificacionesPanel onClose={() => setPanelNotifAbierto(false)} />
+              )}
+            </div>
 
             {usuario ? (
               // Usuario logueado: avatar con su inicial que abre el menú desplegable

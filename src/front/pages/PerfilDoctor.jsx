@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AvatarPerfil } from "../components/AvatarPerfil";
+import { Toast } from "../components/Toast";
 import { archivoAImagenBase64 } from "../utils/imagen";
 
-const API = import.meta.env.VITE_BACKEND_URL;
+const API = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
 
 const ESTILO_BANNER = {
   background: "linear-gradient(135deg, #0d6efd 0%, #0a58ca 55%, #084298 100%)",
@@ -129,6 +130,7 @@ export const PerfilDoctor = () => {
   const [errorPassword, setErrorPassword] = useState("");
   const [exitoPassword, setExitoPassword] = useState("");
   const [guardandoPassword, setGuardandoPassword] = useState(false);
+  const [toastNotificacion, setToastNotificacion] = useState(null);
 
   const token = localStorage.getItem("token");
 
@@ -176,6 +178,56 @@ export const PerfilDoctor = () => {
     traerPerfil();
     return () => controlador.abort();
   }, []);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const controlador = new AbortController();
+
+    const cargarToast = async () => {
+      try {
+        const res = await fetch(
+          `${API}/api/notifications?solo_no_leidas=true&tipo=nueva_cita`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controlador.signal,
+          }
+        );
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const lista = Array.isArray(data)
+          ? data
+          : data.notifications || [];
+
+        if (lista.length > 0) {
+          setToastNotificacion(lista[0]);
+        }
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error("Error al cargar toast:", error);
+        }
+      }
+    };
+
+    cargarToast();
+    return () => controlador.abort();
+  }, []);
+
+  const cerrarToastNotificacion = async () => {
+    const notificacion = toastNotificacion;
+    setToastNotificacion(null);
+    if (!notificacion) return;
+
+    try {
+      await fetch(`${API}/api/notifications/${notificacion.id}/read`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (error) {
+      console.error("Error al marcar toast como leido:", error);
+    }
+  };
 
   const abrirEdicion = () => {
     const inicial = {};
@@ -320,6 +372,13 @@ export const PerfilDoctor = () => {
 
   return (
     <section className="bg-light min-vh-100 pb-5" style={{ paddingTop: "90px" }}>
+      {toastNotificacion && (
+        <Toast
+          tipo="info"
+          mensaje={toastNotificacion.mensaje}
+          onClose={cerrarToastNotificacion}
+        />
+      )}
       <div className="container-xl">
 
         {/* ---------- Cabecera con foto ---------- */}
