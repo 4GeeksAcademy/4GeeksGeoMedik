@@ -19,18 +19,20 @@ export const CalendarioDoctor = () => {
   const token = localStorage.getItem("token");
 
   // Trae los horarios del doctor logueado
-  const traerDisponibilidad = async () => {
+  const traerDisponibilidad = async (signal) => {
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/doctors/${usuario.id}/availability`
+        `${import.meta.env.VITE_BACKEND_URL}/api/doctors/${usuario.id}/availability`,
+        { signal }
       );
       const data = await res.json();
-      console.log(data)
       if (res.ok) setDisponibilidades(data.availabilities);
-    } catch {
+    } catch (err) {
+      // Al desmontar cancelamos la peticion; ese error no es un fallo real
+      if (err.name === "AbortError") return;
       setError("No se pudo conectar con el servidor");
     } finally {
-      setCargando(false);
+      if (!signal?.aborted) setCargando(false);
     }
   };
 
@@ -39,7 +41,10 @@ export const CalendarioDoctor = () => {
       navigate("/login");
       return;
     }
-    traerDisponibilidad();
+
+    const controlador = new AbortController();
+    traerDisponibilidad(controlador.signal);
+    return () => controlador.abort();
   }, []);
 
   // Agrega un horario nuevo

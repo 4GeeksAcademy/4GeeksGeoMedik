@@ -9,22 +9,30 @@ export const BuscarDoctores = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const controlador = new AbortController();
+
     const traerDoctores = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/doctors`);
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/doctors`, {
+          signal: controlador.signal,
+        });
         const data = await res.json();
         if (!res.ok) {
           setError(data.message || "Error al cargar los doctores");
           return;
         }
         setDoctores(data.doctors);
-      } catch {
+      } catch (err) {
+        // Al desmontar cancelamos la peticion; ese error no es un fallo real
+        if (err.name === "AbortError") return;
         setError("No se pudo conectar con el servidor");
       } finally {
-        setCargando(false);
+        if (!controlador.signal.aborted) setCargando(false);
       }
     };
+
     traerDoctores();
+    return () => controlador.abort();
   }, []);
 
   // Filtramos por nombre o especialidad segun lo que escriba el usuario
