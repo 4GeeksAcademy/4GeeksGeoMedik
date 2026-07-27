@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "ffbfb32d0afa5e4bcaba5c2d08c81381a97abd90f22284d2b76647365df5dc50"
+            "sha256": "4e83bbf22d64bd382c481a42eda84cae0cb86452ed9e556217d55cbba5b14baf"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -23,6 +23,15 @@
             ],
             "markers": "python_version >= '3.10'",
             "version": "==1.17.1"
+        },
+        "apscheduler": {
+            "hashes": [
+                "sha256:bbeb2ec02d23d3c06a6c07ed7f0f3939ada6680eb121fae809a69bb42c537a30",
+                "sha256:cd2fcc9330039a81a5893472ad49facf23a6d5604cbe1d918c835c6de7834d5a"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.8'",
+            "version": "==3.11.3"
         },
         "blinker": {
             "hashes": [
@@ -564,6 +573,14 @@
             "index": "pypi",
             "markers": "python_version >= '3.9'",
             "version": "==4.15.0"
+        },
+        "tzlocal": {
+            "hashes": [
+                "sha256:8dbb8660838688a7b6ba4fed31d18dedf842afb4d47ca050d6d891c2c15f3be4",
+                "sha256:aae09f0126a8a86fa736be266eb4a471380d26a0de3bc14844e7821fee3e2a15"
+            ],
+            "markers": "python_version >= '3.10'",
+            "version": "==5.4.4"
         },
         "urllib3": {
             "hashes": [

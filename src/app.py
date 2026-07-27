@@ -12,6 +12,7 @@ from api.models import db
 from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
+from api.scheduler import iniciar_scheduler
 
 # from models import Person
 
@@ -37,6 +38,14 @@ app.config["JWT_SECRET_KEY"] = os.getenv(
 MIGRATE = Migrate(app, db, compare_type=True)
 db.init_app(app)
 jwt = JWTManager(app)
+
+# Iniciar el scheduler una sola vez.
+# Flask crea un segundo proceso cuando está en modo debug.
+if os.getenv("FLASK_DEBUG") == "1":
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        iniciar_scheduler(app)
+else:
+    iniciar_scheduler(app)
 
 # add the admin
 setup_admin(app)
