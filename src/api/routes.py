@@ -260,28 +260,41 @@ def create_appointment():
         status="agendada"
     )
 
-    db.session.add(new_appointment)
+        db.session.add(new_appointment)
 
-    try:
-        db.session.flush()
+        try:
+            db.session.flush()
 
-        appointment_date = date_obj.strftime("%d/%m/%Y")
-        appointment_time = date_obj.strftime("%H:%M")
+            appointment_date = date_obj.strftime("%d/%m/%Y")
+            appointment_time = date_obj.strftime("%H:%M")
 
-        message = (
-            f"Nueva cita agendada por {client.name} "
-            f"el {appointment_date} a las {appointment_time}"
-        )
+            message = (
+                f"Nueva cita agendada por {client.name} "
+                f"el {appointment_date} a las {appointment_time}"
+            )
 
-        crear_notificacion(
-            usuario_id=doctor.id,
-            usuario_tipo="doctor",
-            tipo="nueva_cita",
-            mensaje=message,
-            appointment_id=new_appointment.id
-        )
+            crear_notificacion(
+                usuario_id=doctor.id,
+                usuario_tipo="doctor",
+                tipo="nueva_cita",
+                mensaje=message,
+                appointment_id=new_appointment.id
+            )
 
-        db.session.commit()
+            reminder_message = (
+                f"Recordatorio: tienes una cita hoy a las {appointment_time} "
+                f"con {doctor.name}"
+            )
+
+            crear_notificacion(
+                usuario_id=client_id,
+                usuario_tipo="cliente",
+                tipo="recordatorio",
+                mensaje=reminder_message,
+                appointment_id=new_appointment.id
+            )
+
+            db.session.commit()
     
     except Exception as e:
         db.session.rollback()
@@ -671,6 +684,10 @@ def get_notifications():
     if only_unread == "true":
         notifications_query = notifications_query.filter_by(leida=False)
 
+    tipo_filtro = request.args.get("tipo")
+    if tipo_filtro:
+        notifications_query = notifications_query.filter(Notification.tipo == tipo_filtro)
+
     notifications = notifications_query.order_by(
         Notification.fecha_creacion.desc()
     ).all()
@@ -682,6 +699,48 @@ def get_notifications():
         ],
         "unread_count": unread_count
     }), 200
+
+
+@api.route("/appointments/today", methods=["GET"])
+@jwt_required()
+def get_today_appointments():
+    user_id = int(get_jwt_identity())
+    role = get_jwt()["role"]
+
+    today = datetime.utcnow().date()
+    tomorrow = today + timedelta(days=1)
+
+    if role == "client":
+        query = Appointment.query.filter(
+            Appointment.client_id == user_id,
+            Appointment.date_time >= today,
+            Appointment.date_time < tomorrow,
+            Appointment.status.in_(["agendada", "confirmada", "pendiente"]),
+        )
+    elif role == "doctor":
+        query = Appointment.query.filter(
+            Appointment.doctor_id == user_id,
+            Appointment.date_time >= today,
+            Appointment.date_time < tomorrow,
+            Appointment.status.in_(["agendada", "confirmada", "pendiente"]),
+        )
+    else:
+        return jsonify({"message": "Invalid role"}), 403
+
+    appointments = query.order_by(Appointment.date_time).all()
+
+    result = []
+    for apt in appointments:
+        data = apt.serialize()
+        if role == "client":
+            doctor = Doctor.query.get(apt.doctor_id)
+            data["doctor"] = {"name": doctor.name, "email": doctor.email} if doctor else None
+        elif role == "doctor":
+            client = Client.query.get(apt.client_id)
+            data["client"] = {"name": client.name, "email": client.email} if client else None
+        result.append(data)
+
+    return jsonify(result), 200
 
 
 # =============================================================================

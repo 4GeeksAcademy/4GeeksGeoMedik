@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { ReminderBanner } from "../components/ReminderBanner";
 
 // Calendario: proximas citas (agendadas o confirmadas) ordenadas por fecha
 export const Calendario = () => {
@@ -53,6 +54,8 @@ export const Calendario = () => {
   return (
     <section className="bg-light min-vh-100" style={{ paddingTop: "90px" }}>
       <div className="container-xl pb-5">
+        <ReminderBanner />
+
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
             <h2 className="fw-bold mb-1">Calendario</h2>
