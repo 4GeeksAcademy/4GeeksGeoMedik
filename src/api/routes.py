@@ -865,3 +865,65 @@ def update_doctor_me():
         "message": "Perfil actualizado",
         "doctor": doctor.serialize()
     }), 200
+
+
+# =============================================================================
+#  VIDEOLLAMADAS (Jitsi Meet)
+# =============================================================================
+
+import os
+import secrets
+
+# Servidor de Jitsi. Configurable por si mas adelante se usa instancia propia.
+JITSI_BASE_URL = os.getenv("JITSI_BASE_URL", "https://meet.jit.si").rstrip("/")
+
+
+@api.route("/appointments/<int:id>/video", methods=["POST"])
+@jwt_required()
+def crear_sala_video(id):
+    """Devuelve el enlace de videollamada de una cita, creandolo la 1a vez.
+
+    El enlace se guarda en appointment.video_link y SIEMPRE se reutiliza. Si
+    cada llamada generase una sala nueva, el paciente y el doctor acabarian en
+    salas distintas y no se encontrarian nunca.
+    """
+    user_id = int(get_jwt_identity())
+    role = get_jwt()["role"]
+
+    appointment = Appointment.query.get(id)
+    if appointment is None:
+        return jsonify({"message": "Cita no encontrada"}), 404
+
+    # Solo los dos implicados en ESA cita
+    if role == "client":
+        autorizado = appointment.client_id == user_id
+    elif role == "doctor":
+        autorizado = appointment.doctor_id == user_id
+    else:
+        autorizado = False
+
+    if not autorizado:
+        return jsonify({"message": "No tienes acceso a esta cita"}), 403
+
+    if appointment.status != "confirmada":
+        return jsonify({
+            "message": "La videollamada solo esta disponible en citas confirmadas"
+        }), 409
+
+    if appointment.video_link:
+        return jsonify({"video_link": appointment.video_link}), 200
+
+    # Nombre imposible de adivinar: las salas publicas de Jitsi no piden
+    # autenticacion, asi que un nombre secuencial tipo "cita-42" dejaria
+    # entrar a cualquiera que probase numeros.
+    sala = f"geomedik-{secrets.token_urlsafe(16)}"
+    appointment.video_link = f"{JITSI_BASE_URL}/{sala}"
+
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("Error al guardar el enlace de video")
+        return jsonify({"message": "No se pudo crear la sala"}), 500
+
+    return jsonify({"video_link": appointment.video_link}), 200
