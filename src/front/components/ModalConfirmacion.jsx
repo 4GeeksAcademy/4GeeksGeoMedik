@@ -9,6 +9,11 @@ export const ModalConfirmacion = ({ abierto, onClose, exito, doctor, dia, hora, 
     navigate("/doctores");
   };
 
+  const verMisCitas = () => {
+    onClose();
+    navigate("/perfil-cliente");
+  };
+
   return (
     <div className="modal d-block" tabIndex="-1" style={{ background: "rgba(0,0,0,0.5)" }}>
       <div className="modal-dialog modal-dialog-centered">
@@ -22,7 +27,7 @@ export const ModalConfirmacion = ({ abierto, onClose, exito, doctor, dia, hora, 
                 >
                   check_circle
                 </span>
-                <h3 className="fw-bold mt-2 text-success">¡Agendado!</h3>
+                <h3 className="fw-bold mt-2 text-success">Cita agendada correctamente</h3>
                 <div className="mt-3 text-start border rounded p-3 bg-light">
                   <p className="mb-1"><strong>Doctor:</strong> {doctor?.name}</p>
                   <p className="mb-1"><strong>Especialidad:</strong> {doctor?.specialty}</p>
@@ -48,7 +53,7 @@ export const ModalConfirmacion = ({ abierto, onClose, exito, doctor, dia, hora, 
           <div className="modal-footer justify-content-center">
             {exito ? (
               <>
-                <button className="btn btn-primary" onClick={() => navigate("/mis-citas")}>
+                <button className="btn btn-primary" onClick={verMisCitas}>
                   Ver mis citas
                 </button>
                 <button className="btn btn-outline-secondary" onClick={cerrarYVolver}>
