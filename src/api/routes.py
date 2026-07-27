@@ -260,41 +260,41 @@ def create_appointment():
         status="agendada"
     )
 
-        db.session.add(new_appointment)
+    db.session.add(new_appointment)
 
-        try:
-            db.session.flush()
+    try:
+        db.session.flush()
 
-            appointment_date = date_obj.strftime("%d/%m/%Y")
-            appointment_time = date_obj.strftime("%H:%M")
+        appointment_date = date_obj.strftime("%d/%m/%Y")
+        appointment_time = date_obj.strftime("%H:%M")
 
-            message = (
-                f"Nueva cita agendada por {client.name} "
-                f"el {appointment_date} a las {appointment_time}"
-            )
+        message = (
+            f"Nueva cita agendada por {client.name} "
+            f"el {appointment_date} a las {appointment_time}"
+        )
 
-            crear_notificacion(
-                usuario_id=doctor.id,
-                usuario_tipo="doctor",
-                tipo="nueva_cita",
-                mensaje=message,
-                appointment_id=new_appointment.id
-            )
+        crear_notificacion(
+            usuario_id=doctor.id,
+            usuario_tipo="doctor",
+            tipo="nueva_cita",
+            mensaje=message,
+            appointment_id=new_appointment.id
+        )
 
-            reminder_message = (
-                f"Recordatorio: tienes una cita hoy a las {appointment_time} "
-                f"con {doctor.name}"
-            )
+        reminder_message = (
+            f"Recordatorio: tienes una cita hoy a las {appointment_time} "
+            f"con {doctor.name}"
+        )
 
-            crear_notificacion(
-                usuario_id=client_id,
-                usuario_tipo="cliente",
-                tipo="recordatorio",
-                mensaje=reminder_message,
-                appointment_id=new_appointment.id
-            )
+        crear_notificacion(
+            usuario_id=client_id,
+            usuario_tipo="cliente",
+            tipo="recordatorio",
+            mensaje=reminder_message,
+            appointment_id=new_appointment.id
+        )
 
-            db.session.commit()
+        db.session.commit()
     
     except Exception as e:
         db.session.rollback()
