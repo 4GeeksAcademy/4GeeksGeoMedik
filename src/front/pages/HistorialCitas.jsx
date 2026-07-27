@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ReminderBanner } from "../components/ReminderBanner";
 
 export const HistorialCitas = () => {
   const [citas, setCitas] = useState([]);
@@ -229,6 +230,8 @@ export const HistorialCitas = () => {
     <div className="container py-5">
       <div className="card shadow-sm">
         <div className="card-body">
+          <ReminderBanner />
+
           <h3 className="mb-4">
             Historial de Citas
           </h3>
