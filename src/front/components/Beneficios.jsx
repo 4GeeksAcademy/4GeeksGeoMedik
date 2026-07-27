@@ -14,13 +14,6 @@ const beneficios = [
       "Atención médica remota con alta calidad de video para consultas desde cualquier lugar.",
     color: "text-success bg-success-subtle",
   },
-  {
-    icono: "payments",
-    titulo: "Pagos Seguros",
-    descripcion:
-      "Múltiples métodos de pago integrados con la mayor seguridad para tu tranquilidad.",
-    color: "text-secondary bg-secondary-subtle",
-  },
 ];
 
 export const Beneficios = () => {
@@ -35,9 +28,10 @@ export const Beneficios = () => {
           </p>
         </div>
 
-        <div className="row g-4">
+        {/* Con dos tarjetas centramos la fila: col-md-4 dejaba un hueco a la derecha */}
+        <div className="row g-4 justify-content-center">
           {beneficios.map((beneficio) => (
-            <div className="col-md-4" key={beneficio.titulo}>
+            <div className="col-md-6 col-lg-5" key={beneficio.titulo}>
               <div className="card h-100 border-0 shadow-sm rounded-4 text-center p-4">
                 <div
                   className={`rounded-4 d-flex align-items-center justify-content-center mx-auto mb-3 ${beneficio.color}`}
