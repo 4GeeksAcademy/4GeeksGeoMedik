@@ -7,6 +7,10 @@ from flask_admin.contrib.sqla import ModelView
 from flask_admin.theme import Bootstrap4Theme
 
 
+# Modelos que NO se registran en /admin por llevar datos sensibles
+MODELOS_SIN_ADMIN = {"HistoriaClinica"}
+
+
 def setup_admin(app):
     app.secret_key = os.environ.get('FLASK_APP_KEY', 'sample key')
     admin = Admin(app, name='4Geeks Admin', theme=Bootstrap4Theme(swatch='cerulean'))
@@ -15,4 +19,9 @@ def setup_admin(app):
     for name, obj in inspect.getmembers(models):
         # Verify that the object is a SQLAlchemy model before adding it to the admin. 
         if inspect.isclass(obj) and issubclass(obj, db.Model):
+            # La historia clinica lleva alergias, diagnosticos y medicacion, y
+            # este panel /admin no pide autenticacion en el boilerplate. No
+            # exponemos datos medicos aqui.
+            if obj.__name__ in MODELOS_SIN_ADMIN:
+                continue
             admin.add_view(ModelView(obj, db.session))

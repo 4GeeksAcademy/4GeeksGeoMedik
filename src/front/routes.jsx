@@ -11,6 +11,7 @@ import { Login } from "./pages/Login";
 import { Registro } from "./pages/Registro";
 import { RegistroDoctor } from "./pages/RegistroDoctor";
 import { PerfilCliente } from "./pages/PerfilCliente";
+import { HistoriaClinica } from "./pages/HistoriaClinica";
 import { PerfilDoctor } from "./pages/PerfilDoctor";
 import { SingleDoctorProfile } from "./pages/SingleDoctorProfile";
 import { BuscarDoctores } from "./pages/BuscarDoctores";
@@ -31,6 +32,7 @@ export const router = createBrowserRouter(
       <Route path="/registro" element={<Registro />} />
       <Route path="/registro-doctor" element={<RegistroDoctor />} />
       <Route path="/perfil-cliente" element={<PerfilCliente />} />
+      <Route path="/historia-clinica" element={<HistoriaClinica />} />
       <Route path="/historial-citas" element={<HistorialCitas />} />
       <Route path="/perfil-doctor" element={<PerfilDoctor />} />
       <Route path="/doctores" element={<BuscarDoctores />} />

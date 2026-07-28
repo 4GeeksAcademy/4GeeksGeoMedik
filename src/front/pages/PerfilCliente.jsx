@@ -29,6 +29,13 @@ const ACCESOS = [
     ancla: "historial-citas",
   },
   {
+    titulo: "Mi historia clinica",
+    texto: "Alergias, medicacion y antecedentes",
+    icono: "clinical_notes",
+    color: "info",
+    ruta: "/historia-clinica",
+  },
+  {
     titulo: "Calendario",
     texto: "Tus proximas citas por fecha",
     icono: "calendar_month",
@@ -60,6 +67,8 @@ export const PerfilCliente = () => {
   const inputFoto = useRef(null);
 
   const [usuario, setUsuario] = useState(null);
+  // null = todavia no sabemos; false = le falta rellenarla
+  const [historiaCompleta, setHistoriaCompleta] = useState(null);
 
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState({});
@@ -121,6 +130,31 @@ export const PerfilCliente = () => {
     };
 
     traerPerfil();
+    return () => controlador.abort();
+  }, []);
+
+  // Solo para saber si mostramos el aviso; no traemos los datos medicos aqui
+  useEffect(() => {
+    if (!token) return;
+
+    const controlador = new AbortController();
+
+    const comprobarHistoria = async () => {
+      try {
+        const res = await fetch(`${API}/api/clients/me/historia`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controlador.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setHistoriaCompleta(Boolean(data.completa));
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        // Si falla no molestamos: simplemente no enseñamos el aviso
+      }
+    };
+
+    comprobarHistoria();
     return () => controlador.abort();
   }, []);
 
@@ -311,6 +345,26 @@ export const PerfilCliente = () => {
           </div>
         </div>
 
+        {historiaCompleta === false && (
+          <div className="alert alert-warning d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 rounded-4 border-0 shadow-sm">
+            <span className="d-flex align-items-start gap-2">
+              <span className="material-symbols-outlined">clinical_notes</span>
+              <span>
+                <strong className="d-block">Te falta completar tu historia clinica</strong>
+                <span className="small">
+                  Alergias, medicacion y enfermedades. Tu medico las necesita antes de atenderte.
+                </span>
+              </span>
+            </span>
+            <Link
+              to="/historia-clinica"
+              className="btn btn-warning fw-semibold text-nowrap"
+            >
+              Completar ahora
+            </Link>
+          </div>
+        )}
+
         {exito && (
           <div className="alert alert-success d-flex align-items-center gap-2 rounded-4 border-0 shadow-sm">
             <span className="material-symbols-outlined">check_circle</span>
@@ -467,6 +521,11 @@ export const PerfilCliente = () => {
               </div>
             </div>
 
+            {/* ---------- Historial de citas ---------- */}
+            <div id="historial-citas" className="mt-4">
+              <HistorialCitas />
+            </div>
+
             {/* ---------- Seguridad ---------- */}
             <div className="card border-0 shadow-sm rounded-4 mt-4">
               <div className="card-body p-4">
@@ -611,11 +670,6 @@ export const PerfilCliente = () => {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Historial de citas incrustado (viene de la rama developer) */}
-        <div id="historial-citas" className="mt-4">
-          <HistorialCitas />
         </div>
 
         <div className="text-center mt-4">

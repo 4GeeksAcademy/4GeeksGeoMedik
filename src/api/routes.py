@@ -1,5 +1,5 @@
 from flask import request, jsonify, Blueprint, current_app
-from api.models import db, Client, Doctor, Appointment, Availability, Notification
+from api.models import db, Client, Doctor, Appointment, Availability, Notification, HistoriaClinica
 from api.utils import APIException
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -1065,3 +1065,192 @@ def crear_sala_video(id):
         return jsonify({"message": "No se pudo crear la sala"}), 500
 
     return jsonify({"video_link": appointment.video_link}), 200
+
+
+# =============================================================================
+#  HISTORIA CLINICA DEL CLIENTE
+# =============================================================================
+
+from datetime import date as _date
+
+ALTURA_MIN_CM, ALTURA_MAX_CM = 50, 250
+PESO_MIN_KG, PESO_MAX_KG = 2, 500
+TIPOS_SANGRE = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
+
+# Cada campo con su limite real de columna, para no reventar el INSERT
+CAMPOS_TEXTO = {
+    "alergias": 2000,
+    "enfermedades": 2000,
+    "medicamentos": 2000,
+    "discapacidades": 2000,
+    "contacto_emergencia_nombre": 120,
+    "contacto_emergencia_telefono": 20,
+}
+
+
+def limpiar_texto(valor, maximo):
+    if valor is None:
+        return None
+    limpio = str(valor).strip()[:maximo]
+    return limpio or None
+
+
+def lista_a_texto(valor):
+    """Las casillas marcadas se guardan como texto separado por '|'."""
+    if valor is None:
+        return None
+    if isinstance(valor, str):
+        valor = [valor]
+    if not isinstance(valor, list):
+        return None
+    # Quitamos el separador de dentro de cada item para no corromper la lista
+    partes = [str(x).strip().replace("|", " ") for x in valor]
+    return "|".join([x for x in partes if x])[:2000] or None
+
+
+def aplicar_datos_historia(historia, body):
+    """Vuelca el body sobre la historia. Devuelve mensaje de error o None."""
+
+    if "fecha_nacimiento" in body:
+        valor = body["fecha_nacimiento"]
+        if not valor:
+            historia.fecha_nacimiento = None
+        else:
+            try:
+                fecha = datetime.strptime(str(valor), "%Y-%m-%d").date()
+            except ValueError:
+                return "La fecha de nacimiento debe tener formato AAAA-MM-DD"
+            if fecha > _date.today():
+                return "La fecha de nacimiento no puede estar en el futuro"
+            if fecha.year < 1900:
+                return "Revisa la fecha de nacimiento"
+            historia.fecha_nacimiento = fecha
+
+    if "altura_cm" in body:
+        valor = body["altura_cm"]
+        if valor in (None, ""):
+            historia.altura_cm = None
+        else:
+            try:
+                altura = int(float(valor))
+            except (TypeError, ValueError):
+                return "La altura debe ser un numero"
+            if not (ALTURA_MIN_CM <= altura <= ALTURA_MAX_CM):
+                return f"La altura debe estar entre {ALTURA_MIN_CM} y {ALTURA_MAX_CM} cm"
+            historia.altura_cm = altura
+
+    if "peso_kg" in body:
+        valor = body["peso_kg"]
+        if valor in (None, ""):
+            historia.peso_kg = None
+        else:
+            try:
+                peso = float(valor)
+            except (TypeError, ValueError):
+                return "El peso debe ser un numero"
+            if not (PESO_MIN_KG <= peso <= PESO_MAX_KG):
+                return f"El peso debe estar entre {PESO_MIN_KG} y {PESO_MAX_KG} kg"
+            historia.peso_kg = round(peso, 2)
+
+    if "tipo_sangre" in body:
+        valor = (body["tipo_sangre"] or "").strip().upper()
+        if valor and valor not in TIPOS_SANGRE:
+            return "Tipo de sangre no valido"
+        historia.tipo_sangre = valor or None
+
+    for campo, maximo in CAMPOS_TEXTO.items():
+        if campo in body:
+            setattr(historia, campo, limpiar_texto(body[campo], maximo))
+
+    for campo in ["alergias_comunes", "enfermedades_comunes"]:
+        if campo in body:
+            setattr(historia, campo, lista_a_texto(body[campo]))
+
+    return None
+
+
+@api.route("/clients/me/historia", methods=["GET"])
+@jwt_required()
+def get_mi_historia():
+    if get_jwt()["role"] != "client":
+        return jsonify({"message": "Solo los clientes tienen historia clinica"}), 403
+
+    client_id = int(get_jwt_identity())
+    historia = HistoriaClinica.query.filter_by(client_id=client_id).first()
+
+    if historia is None:
+        # Todavia no la ha rellenado: no es un error
+        return jsonify({"historia": None, "completa": False}), 200
+
+    return jsonify({
+        "historia": historia.serialize(),
+        "completa": historia.completa,
+    }), 200
+
+
+@api.route("/clients/me/historia", methods=["PUT"])
+@jwt_required()
+def upsert_mi_historia():
+    if get_jwt()["role"] != "client":
+        return jsonify({"message": "Solo los clientes pueden editar su historia"}), 403
+
+    client_id = int(get_jwt_identity())
+    if Client.query.get(client_id) is None:
+        return jsonify({"message": "Cliente no encontrado"}), 404
+
+    body = request.get_json(silent=True)
+    if not body:
+        return jsonify({"message": "Body is required"}), 400
+
+    historia = HistoriaClinica.query.filter_by(client_id=client_id).first()
+    creada = historia is None
+    if creada:
+        historia = HistoriaClinica(client_id=client_id)
+        db.session.add(historia)
+
+    error = aplicar_datos_historia(historia, body)
+    if error:
+        db.session.rollback()
+        return jsonify({"message": error}), 400
+
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("Error al guardar la historia clinica")
+        return jsonify({"message": "No se pudo guardar la historia clinica"}), 500
+
+    return jsonify({
+        "message": "Historia clinica guardada",
+        "historia": historia.serialize(),
+    }), (201 if creada else 200)
+
+
+@api.route("/clients/<int:id>/historia", methods=["GET"])
+@jwt_required()
+def get_historia_de_paciente(id):
+    """Un medico solo ve la historia de un paciente con el que tiene cita."""
+    if get_jwt()["role"] != "doctor":
+        return jsonify({
+            "message": "Solo los medicos pueden consultar historias ajenas"
+        }), 403
+
+    doctor_id = int(get_jwt_identity())
+
+    # Una cita cancelada no da acceso: esa consulta nunca ocurrio.
+    tiene_cita = Appointment.query.filter(
+        Appointment.doctor_id == doctor_id,
+        Appointment.client_id == id,
+        Appointment.status.in_(["agendada", "pendiente", "confirmada", "completada"]),
+    ).first()
+    if tiene_cita is None:
+        return jsonify({"message": "No tienes ninguna cita con este paciente"}), 403
+
+    historia = HistoriaClinica.query.filter_by(client_id=id).first()
+    if historia is None:
+        return jsonify({"historia": None, "completa": False}), 200
+
+    return jsonify({
+        "historia": historia.serialize(),
+        "completa": historia.completa,
+    }), 200
