@@ -29,6 +29,13 @@ const ACCESOS = [
     ancla: "historial-citas",
   },
   {
+    titulo: "Mi historia clinica",
+    texto: "Alergias, medicacion y antecedentes",
+    icono: "clinical_notes",
+    color: "info",
+    ruta: "/historia-clinica",
+  },
+  {
     titulo: "Calendario",
     texto: "Tus proximas citas por fecha",
     icono: "calendar_month",
@@ -514,6 +521,11 @@ export const PerfilCliente = () => {
               </div>
             </div>
 
+            {/* ---------- Historial de citas ---------- */}
+            <div id="historial-citas" className="mt-4">
+              <HistorialCitas />
+            </div>
+
             {/* ---------- Seguridad ---------- */}
             <div className="card border-0 shadow-sm rounded-4 mt-4">
               <div className="card-body p-4">
@@ -658,11 +670,6 @@ export const PerfilCliente = () => {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Historial de citas incrustado (viene de la rama developer) */}
-        <div id="historial-citas" className="mt-4">
-          <HistorialCitas />
         </div>
 
         <div className="text-center mt-4">
