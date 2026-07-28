@@ -1103,6 +1103,7 @@ def lista_a_texto(valor):
         valor = [valor]
     if not isinstance(valor, list):
         return None
+    # Quitamos el separador de dentro de cada item para no corromper la lista
     partes = [str(x).strip().replace("|", " ") for x in valor]
     return "|".join([x for x in partes if x])[:2000] or None
 
