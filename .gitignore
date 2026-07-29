@@ -80,3 +80,7 @@ database.database
 database.db
 diagram.png
 __pycache__/
+
+migrations/__pycache__/
+Pipfile.lock
+package-lock.json

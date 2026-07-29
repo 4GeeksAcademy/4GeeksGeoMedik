@@ -1,81 +1,79 @@
-# WebApp boilerplate with React JS and Flask API
+# GeoMedic
 
-Build web applications using React.js for the front end and python/flask for your backend API.
+Web application to connect patients with doctors, check available schedules, and book in-person or video appointments.
 
-- Documentation can be found here: https://4geeks.com/docs/start/react-flask-template
-- Here is a video on [how to use this template](https://www.loom.com/share/f37c6838b3f1496c95111e515e83dd9b)
-- Integrated with Pipenv for package managing.
-- Fast deployment to Render [in just a few steps here](https://4geeks.com/docs/start/deploy-to-render-com).
-- Use of .env file.
-- SQLAlchemy integration for database abstraction.
+## Description
 
-### 1) Installation:
+GeoMedic is a platform where users can register as doctors or patients.
 
-> If you use Github Codespaces (recommended) or Gitpod this template will already come with Python, Node and the Posgres Database installed. If you are working locally make sure to install Python 3.10, Node 
+Doctors can complete their professional profile, indicate their specialty, configure their availability, and view booked appointments.
 
-It is recomended to install the backend first, make sure you have Python 3.10, Pipenv and a database engine (Posgress recomended)
+Patients can search for doctors, view their available schedules, and book in-person or video appointments.
 
-1. Install the python packages: `$ pipenv install`
-2. Create a .env file based on the .env.example: `$ cp .env.example .env`
-3. Install your database engine and create your database, depending on your database you have to create a DATABASE_URL variable with one of the possible values, make sure you replace the valudes with your database information:
+## Features
 
-| Engine    | DATABASE_URL                                        |
-| --------- | --------------------------------------------------- |
-| SQLite    | sqlite:////test.db                                  |
-| MySQL     | mysql://username:password@localhost:port/example    |
-| Postgress | postgres://username:password@localhost:5432/example |
+- Doctor and patient registration.
 
-4. Migrate the migrations: `$ pipenv run migrate` (skip if you have not made changes to the models on the `./src/api/models.py`)
-5. Run the migrations: `$ pipenv run upgrade`
-6. Run the application: `$ pipenv run start`
+- Login.
 
-> Note: Codespaces users can connect to psql by typing: `psql -h localhost -U gitpod example`
+- Authentication via JWT.
 
-### Undo a migration
+- Doctor professional profile.
 
-You are also able to undo a migration by running
+- Setting available schedules.
 
-```sh
-$ pipenv run downgrade
+- Search for doctors by specialty and location.
+
+- Appointment booking.
+
+- Viewing upcoming and past appointments.
+
+- Appointment cancellation.
+
+- Confirmation notifications.
+
+- Video calls.
+
+## Technologies Used
+
+### Frontend
+
+### Backend
+
+### Database
+
+## Installation
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/4GeeksAcademy/4GeeksGeoMedik
+cd 4GeeksGeoMedik
 ```
 
-### Backend Populate Table Users
+### 2. Install backend dependencies
 
-To insert test users in the database execute the following command:
+### 3. Install frontend dependencies
 
-```sh
-$ flask insert-test-users 5
+```bash
+npm install
+```
+### 4. Configure environment variables
+
+## Run the project
+
+Backend:
+
+```bash
+pipenv run start
 ```
 
-And you will see the following message:
+Frontend:
 
-```
-  Creating test users
-  test_user1@test.com created.
-  test_user2@test.com created.
-  test_user3@test.com created.
-  test_user4@test.com created.
-  test_user5@test.com created.
-  Users created successfully!
+```bash
+npm run start
 ```
 
-### **Important note for the database and the data inside it**
+### 4. Configure environment variables
 
-Every Github codespace environment will have **its own database**, so if you're working with more people eveyone will have a different database and different records inside it. This data **will be lost**, so don't spend too much time manually creating records for testing, instead, you can automate adding records to your database by editing ```commands.py``` file inside ```/src/api``` folder. Edit line 32 function ```insert_test_data``` to insert the data according to your model (use the function ```insert_test_users``` above as an example). Then, all you need to do is run ```pipenv run insert-test-data```.
-
-### Front-End Manual Installation:
-
--   Make sure you are using node version 20 and that you have already successfully installed and runned the backend.
-
-1. Install the packages: `$ npm install`
-2. Start coding! start the webpack dev server `$ npm run start`
-
-## Publish your website!
-
-This boilerplate it's 100% read to deploy with Render.com and Heroku in a matter of minutes. Please read the [official documentation about it](https://4geeks.com/docs/start/deploy-to-render-com).
-
-### Contributors
-
-This template was built as part of the 4Geeks Academy [Coding Bootcamp](https://4geeksacademy.com/us/coding-bootcamp) by [Alejandro Sanchez](https://twitter.com/alesanchezr) and many other contributors. Find out more about our [Full Stack Developer Course](https://4geeksacademy.com/us/coding-bootcamps/part-time-full-stack-developer), and [Data Science Bootcamp](https://4geeksacademy.com/us/coding-bootcamps/datascience-machine-learning).
-
-You can find other templates and resources like this at the [school github page](https://github.com/4geeksacademy/).
+Create a `.env` file:
