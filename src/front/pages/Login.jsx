@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { CampoPassword } from "../components/CampoPassword";
 import logoGeoMedic from "../assets/img/geomedic-logo.png";
 
 export const Login = () => {
@@ -128,20 +129,14 @@ export const Login = () => {
                   <label htmlFor="password" className="form-label fw-semibold small">
                     Contraseña
                   </label>
-                  <div className="input-group">
-                    <span className="input-group-text bg-light">
-                      <span className="material-symbols-outlined">lock</span>
-                    </span>
-                    <input
-                      type="password"
-                      id="password"
-                      name="password"
-                      className="form-control"
-                      placeholder="••••••••"
-                      value={form.password}
-                      onChange={handleChange}
-                    />
-                  </div>
+                  <CampoPassword
+                    icono="lock"
+                    id="password"
+                    name="password"
+                    placeholder="••••••••"
+                    value={form.password}
+                    onChange={handleChange}
+                  />
                 </div>
 
                 <button

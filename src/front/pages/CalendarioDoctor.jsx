@@ -21,12 +21,17 @@ export const CalendarioDoctor = () => {
   // Trae los horarios del doctor logueado
   const traerDisponibilidad = async (signal) => {
     try {
+      // Endpoint propio del medico: devuelve los horarios con su id, que es
+      // lo que necesita el boton de borrar. El publico solo da huecos libres.
       const res = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/doctors/${usuario.id}/availability`,
-        { signal }
+        `${import.meta.env.VITE_BACKEND_URL}/api/doctors/me/availability`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          signal,
+        }
       );
       const data = await res.json();
-      if (res.ok) setDisponibilidades(data.availabilities);
+      if (res.ok) setDisponibilidades(data.availabilities || []);
     } catch (err) {
       // Al desmontar cancelamos la peticion; ese error no es un fallo real
       if (err.name === "AbortError") return;

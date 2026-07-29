@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Estrellas } from "../components/Estrellas";
 import { ReminderBanner } from "../components/ReminderBanner";
 
 export const HistorialCitas = () => {
@@ -7,6 +8,10 @@ export const HistorialCitas = () => {
   const [error, setError] = useState("");
   const [estado, setEstado] = useState("todas");
   const [citaSeleccionada, setCitaSeleccionada] = useState(null);
+  const [citaAResenar, setCitaAResenar] = useState(null);
+  const [rating, setRating] = useState(0);
+  const [comentario, setComentario] = useState("");
+  const [errorResena, setErrorResena] = useState("");
   const [nuevaFecha, setNuevaFecha] = useState("");
   const [procesando, setProcesando] = useState(false);
   const [videoError, setVideoError] = useState("");
@@ -205,12 +210,58 @@ export const HistorialCitas = () => {
     return clases[status] || "bg-secondary";
   };
 
+  const abrirResena = (cita) => {
+    setCitaAResenar(cita);
+    setRating(0);
+    setComentario("");
+    setErrorResena("");
+  };
+
+  const enviarResena = async () => {
+    if (rating < 1) {
+      setErrorResena("Elige de 1 a 5 estrellas");
+      return;
+    }
+
+    setProcesando(true);
+    setErrorResena("");
+
+    try {
+      const respuesta = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/appointments/${citaAResenar.id}/review`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${obtenerToken()}`,
+          },
+          body: JSON.stringify({ rating, comentario }),
+        }
+      );
+
+      const data = await respuesta.json();
+
+      if (!respuesta.ok) {
+        setErrorResena(data.message || "No se pudo guardar la resena");
+        return;
+      }
+
+      setCitaAResenar(null);
+      cargarCitas();
+    } catch {
+      setErrorResena("No se pudo conectar con el servidor");
+    } finally {
+      setProcesando(false);
+    }
+  };
+
   const citaPermiteAcciones = (cita) => {
     return !["cancelada", "completada"].includes(cita.status);
   };
 
-  // La sala se abre 5 minutos antes de la hora y sigue disponible 1 hora despues
-  const MINUTOS_ANTES = 5;
+  // La sala se abre 30 minutos antes de la hora y sigue disponible 1 hora
+  // despues. El medico no tiene esta restriccion: el dirige la consulta.
+  const MINUTOS_ANTES = 30;
   const MINUTOS_DESPUES = 60;
 
   const dentroDeVentana = (cita) => {
@@ -435,6 +486,18 @@ export const HistorialCitas = () => {
                         </>
                       )}
 
+                      {cita.status === "completada" && (
+                        <button
+                          type="button"
+                          className="btn btn-outline-warning btn-sm d-flex align-items-center gap-1"
+                          disabled={procesando}
+                          onClick={() => abrirResena(cita)}
+                        >
+                          <span className="material-symbols-outlined fs-6">star</span>
+                          Valorar consulta
+                        </button>
+                      )}
+
                       {puedeVideollamada(cita) && (
                         <button
                           type="button"
@@ -543,6 +606,66 @@ export const HistorialCitas = () => {
                     {procesando
                       ? "Guardando..."
                       : "Guardar cambios"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="modal-backdrop fade show" />
+        </>
+      )}
+
+      {citaAResenar && (
+        <>
+          <div className="modal fade show" style={{ display: "block" }} tabIndex="-1" role="dialog" aria-modal="true">
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">Valorar consulta</h5>
+                  <button type="button" className="btn-close" onClick={() => setCitaAResenar(null)} />
+                </div>
+
+                <div className="modal-body">
+                  <p className="text-secondary small">
+                    {citaAResenar.doctor?.name
+                      ? `Consulta con ${citaAResenar.doctor.name}`
+                      : "Cuentanos como fue la consulta"}
+                  </p>
+
+                  {errorResena && (
+                    <div className="alert alert-danger py-2 small">{errorResena}</div>
+                  )}
+
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold small d-block">Tu valoracion</label>
+                    <Estrellas valor={rating} onChange={setRating} tamano="fs-2" />
+                  </div>
+
+                  <label htmlFor="comentario" className="form-label fw-semibold small">
+                    Comentario (opcional)
+                  </label>
+                  <textarea
+                    id="comentario"
+                    rows="3"
+                    className="form-control"
+                    maxLength={1000}
+                    value={comentario}
+                    onChange={(e) => setComentario(e.target.value)}
+                  />
+                </div>
+
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={() => setCitaAResenar(null)}>
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={procesando}
+                    onClick={enviarResena}
+                  >
+                    {procesando ? "Enviando..." : "Enviar valoracion"}
                   </button>
                 </div>
               </div>
