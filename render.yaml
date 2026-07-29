@@ -19,8 +19,12 @@ services:
             value: 0
           - key: FLASK_APP_KEY # Imported from Heroku app
             value: "any key works"
+          - key: VITE_BACKEND_URL
+            value: https://sample-service-name-xiz3.onrender.com
+          - key: JWT_SECRET_KEY
+            generateValue: true
           - key: PYTHON_VERSION
-            value: 3.10.6
+            value: 3.13.0
           - key: DATABASE_URL # Render PostgreSQL database
             fromDatabase:
                 name: postgresql-trapezoidal-42170

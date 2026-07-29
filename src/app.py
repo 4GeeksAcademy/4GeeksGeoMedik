@@ -2,6 +2,7 @@
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
 import os
+from datetime import timedelta
 from flask import Flask, request, jsonify, url_for, send_from_directory
 from flask_migrate import Migrate
 from flask_cors import CORS
@@ -35,6 +36,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config["JWT_SECRET_KEY"] = os.getenv(
     "JWT_SECRET_KEY", "dev-only-secret-key"
 )
+# Por defecto flask-jwt-extended caduca el token a los 15 minutos, lo que
+# echa al usuario a mitad de rellenar un formulario. 8 horas cubre una
+# sesion de trabajo entera. Ajustable con JWT_HOURS.
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(
+    hours=int(os.getenv("JWT_HOURS", "8"))
+)
+
 MIGRATE = Migrate(app, db, compare_type=True)
 db.init_app(app)
 jwt = JWTManager(app)
