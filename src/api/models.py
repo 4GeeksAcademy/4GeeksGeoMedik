@@ -227,3 +227,40 @@ class HistoriaClinica(db.Model):
                 self.actualizado_en.isoformat() if self.actualizado_en else None
             ),
         }
+
+
+class Review(db.Model):
+    """Valoracion de un cliente a un medico, atada a una cita concreta."""
+
+    __tablename__ = "review"
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False)
+    doctor_id = db.Column(db.Integer, db.ForeignKey("doctor.id"), nullable=False)
+
+    # unique: una resena por cita. Si el paciente vuelve, valora esa otra visita.
+    appointment_id = db.Column(
+        db.Integer, db.ForeignKey("appointment.id"), unique=True, nullable=False
+    )
+
+    rating = db.Column(db.Integer, nullable=False)
+    comentario = db.Column(db.Text, nullable=True)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+
+    client = db.relationship("Client", backref="reviews")
+    doctor = db.relationship("Doctor", backref="reviews")
+    appointment = db.relationship("Appointment", backref=db.backref("review", uselist=False))
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "doctor_id": self.doctor_id,
+            "appointment_id": self.appointment_id,
+            "rating": self.rating,
+            "comentario": self.comentario,
+            "fecha_creacion": (
+                self.fecha_creacion.isoformat() if self.fecha_creacion else None
+            ),
+            # Solo el nombre: el email del paciente no pinta nada en algo publico
+            "cliente": self.client.name if self.client else None,
+        }

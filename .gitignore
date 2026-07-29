@@ -81,6 +81,6 @@ database.db
 diagram.png
 __pycache__/
 
-migrations/
+migrations/__pycache__/
 Pipfile.lock
 package-lock.json

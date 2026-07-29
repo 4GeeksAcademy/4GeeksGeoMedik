@@ -15,9 +15,84 @@ export const Consultas = () => {
   const [citas, setCitas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+  const [procesando, setProcesando] = useState(null);
 
   const navigate = useNavigate();
   const rol = localStorage.getItem("rol");
+
+  const token = localStorage.getItem("token");
+
+  // El doctor mueve el estado de la cita. El backend ya comprueba que sea
+  // suya; aqui solo decidimos que boton tiene sentido en cada estado.
+  const cambiarEstado = async (cita, estado) => {
+    setProcesando(cita.id);
+    setError("");
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/appointments/${cita.id}/status`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: estado }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "No se pudo actualizar la cita");
+        return;
+      }
+
+      setCitas((anteriores) =>
+        anteriores.map((c) => (c.id === cita.id ? { ...c, status: estado } : c))
+      );
+    } catch {
+      setError("No se pudo conectar con el servidor");
+    } finally {
+      setProcesando(null);
+    }
+  };
+
+  // El medico puede abrir la sala en cuanto la cita este confirmada, sin
+  // esperar a la hora: es quien dirige la consulta.
+  const abrirVideollamada = async (cita) => {
+    setProcesando(cita.id);
+    setError("");
+
+    // La pestana se abre antes del await o el navegador la bloquea como popup
+    const pestania = window.open("", "_blank", "noopener,noreferrer");
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/appointments/${cita.id}/video`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (pestania) pestania.close();
+        setError(data.message || "No se pudo abrir la videollamada");
+        return;
+      }
+
+      if (pestania) pestania.location.href = data.video_link;
+      else window.location.href = data.video_link;
+    } catch {
+      if (pestania) pestania.close();
+      setError("No se pudo conectar con el servidor");
+    } finally {
+      setProcesando(null);
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -115,9 +190,57 @@ export const Consultas = () => {
                   </p>
                 </div>
               </div>
-              <span className={`badge rounded-pill text-uppercase ${colorEstado(cita.status)}`}>
-                {cita.status}
-              </span>
+              <div className="d-flex flex-wrap align-items-center gap-2">
+                <span className={`badge rounded-pill text-uppercase ${colorEstado(cita.status)}`}>
+                  {cita.status}
+                </span>
+
+                {rol === "doctor" && cita.status === "agendada" && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-success fw-semibold"
+                    disabled={procesando === cita.id}
+                    onClick={() => cambiarEstado(cita, "confirmada")}
+                  >
+                    Confirmar
+                  </button>
+                )}
+
+                {rol === "doctor" && cita.status === "confirmada" && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary fw-semibold d-flex align-items-center gap-1"
+                      disabled={procesando === cita.id}
+                      onClick={() => abrirVideollamada(cita)}
+                    >
+                      <span className="material-symbols-outlined fs-6">videocam</span>
+                      Iniciar videollamada
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary fw-semibold"
+                      disabled={procesando === cita.id}
+                      onClick={() => cambiarEstado(cita, "completada")}
+                    >
+                      Marcar completada
+                    </button>
+                  </>
+                )}
+
+                {rol === "doctor" &&
+                  !["cancelada", "completada"].includes(cita.status) && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      disabled={procesando === cita.id}
+                      onClick={() => cambiarEstado(cita, "cancelada")}
+                    >
+                      Cancelar
+                    </button>
+                  )}
+              </div>
             </div>
           </div>
         ))}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { CampoPassword } from "../components/CampoPassword";
 import logoGeoMedic from "../assets/img/geomedic-logo.png";
 
 const API_URL = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
@@ -111,22 +112,34 @@ export const Registro = () => {
                       <label htmlFor={campo.name} className="form-label fw-semibold small">
                         {campo.label}
                       </label>
-                      <div className="input-group">
-                        <span className="input-group-text bg-light">
-                          <span className="material-symbols-outlined">{campo.icono}</span>
-                        </span>
-                        <input
-                          type={campo.tipo}
+                      {campo.tipo === "password" ? (
+                        <CampoPassword
+                          icono={campo.icono}
                           id={campo.name}
                           name={campo.name}
-                          className="form-control"
                           placeholder={campo.placeholder}
                           value={form[campo.name]}
                           onChange={handleChange}
                           required
-                          minLength={campo.name === "password" || campo.name === "confirmar" ? 6 : undefined}
+                          minLength={6}
                         />
-                      </div>
+                      ) : (
+                        <div className="input-group">
+                          <span className="input-group-text bg-light">
+                            <span className="material-symbols-outlined">{campo.icono}</span>
+                          </span>
+                          <input
+                            type={campo.tipo}
+                            id={campo.name}
+                            name={campo.name}
+                            className="form-control"
+                            placeholder={campo.placeholder}
+                            value={form[campo.name]}
+                            onChange={handleChange}
+                            required
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

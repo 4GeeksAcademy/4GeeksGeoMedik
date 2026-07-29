@@ -1,8 +1,35 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ModalConfirmacion } from "./ModalConfirmacion";
+import { Estrellas } from "./Estrellas";
 
 const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+// Devuelve las proximas 6 fechas que caen en ese dia de la semana. Antes el
+// modal dejaba elegir cualquier fecha, y si no coincidia con el dia del hueco
+// el backend la rechazaba con "Doctor not available on this day".
+const proximasFechas = (indiceDia, cuantas = 6) => {
+  if (indiceDia === null || indiceDia === undefined) return [];
+
+  const fechas = [];
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  for (let i = 0; i < 60 && fechas.length < cuantas; i++) {
+    const f = new Date(hoy);
+    f.setDate(hoy.getDate() + i);
+    // getDay(): 0=domingo. El backend usa 0=lunes.
+    const diaBackend = (f.getDay() + 6) % 7;
+    if (diaBackend !== indiceDia) continue;
+
+    fechas.push({
+      valor: `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`,
+      etiqueta: f.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }),
+    });
+  }
+
+  return fechas;
+};
+
 const DIAS_API = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
 
 export const DetalleDoctor = () => {
@@ -20,6 +47,8 @@ export const DetalleDoctor = () => {
   const [fechaSel, setFechaSel] = useState("");
   const [exitoAgendar, setExitoAgendar] = useState(false);
   const [errorAgendar, setErrorAgendar] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [mediaReviews, setMediaReviews] = useState(null);
 
   useEffect(() => {
     if (!id) return;
@@ -33,8 +62,13 @@ export const DetalleDoctor = () => {
       fetch(`${base}/api/doctors/${id}/availability`, { signal: controlador.signal }).then((r) =>
         r.json()
       ),
+      fetch(`${base}/api/doctors/${id}/reviews`, { signal: controlador.signal }).then((r) =>
+        r.json()
+      ),
     ])
-      .then(([docRes, availRes]) => {
+      .then(([docRes, availRes, revRes]) => {
+        setReviews(revRes.reviews || []);
+        setMediaReviews(revRes.media ?? null);
         if (docRes.doctor) setDoctor(docRes.doctor);
         else setError(docRes.message || "Doctor no encontrado");
         if (availRes.availability) setAvailabilities(availRes.availability);
@@ -128,11 +162,14 @@ export const DetalleDoctor = () => {
               <p className="text-muted fs-5 mb-2">{doctor.specialty}</p>
               <div className="d-flex align-items-center gap-3">
                 <span className="badge bg-light text-dark">C.I.: {doctor.id_number}</span>
-                <span className="text-warning fw-semibold">
-                  {"★".repeat(Math.round(doctor.average_rating || 0))}
-                  {"☆".repeat(5 - Math.round(doctor.average_rating || 0))}
+                <span className="d-flex align-items-center gap-1">
+                  <Estrellas valor={mediaReviews ?? doctor.average_rating ?? 0} />
                   <small className="text-muted ms-1">
-                    ({doctor.average_rating ? doctor.average_rating.toFixed(1) : "Sin"})
+                    {mediaReviews
+                      ? `${mediaReviews.toFixed(1)} · ${reviews.length} ${
+                          reviews.length === 1 ? "reseña" : "reseñas"
+                        }`
+                      : "Sin valoraciones"}
                   </small>
                 </span>
               </div>
@@ -195,15 +232,36 @@ export const DetalleDoctor = () => {
           <h4 className="fw-bold mb-3">Reviews y experiencia</h4>
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-3">No hay reviews todavía. Placeholder mock:</p>
-              <div className="border rounded p-3 mb-2">
-                <strong>María González</strong> <span className="text-warning">★★★★★</span>
-                <p className="mb-0 mt-1">Excelente atención, muy profesional y puntual.</p>
-              </div>
-              <div className="border rounded p-3">
-                <strong>Carlos Pérez</strong> <span className="text-warning">★★★★☆</span>
-                <p className="mb-0 mt-1">Muy buen doctor, pero la sala de espera estuvo algo llena.</p>
-              </div>
+              {reviews.length === 0 ? (
+                <div className="text-center py-4">
+                  <span className="material-symbols-outlined fs-1 text-secondary">reviews</span>
+                  <p className="fw-semibold mt-2 mb-1">Todavía no hay reseñas</p>
+                  <p className="text-secondary small mb-0">
+                    Las opiniones aparecerán aquí cuando los pacientes valoren sus consultas.
+                  </p>
+                </div>
+              ) : (
+                <div className="d-grid gap-3">
+                  {reviews.map((r) => (
+                    <div className="border rounded-4 p-3" key={r.id}>
+                      <div className="d-flex justify-content-between align-items-start gap-2">
+                        <strong>{r.cliente || "Paciente"}</strong>
+                        <Estrellas valor={r.rating} tamano="fs-6" />
+                      </div>
+                      {r.comentario && <p className="mb-0 mt-2">{r.comentario}</p>}
+                      {r.fecha_creacion && (
+                        <p className="text-secondary small mb-0 mt-2">
+                          {new Date(r.fecha_creacion).toLocaleDateString("es-ES", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -222,13 +280,22 @@ export const DetalleDoctor = () => {
                 <p><strong>Día:</strong> {DIAS[diaSel]}</p>
                 <p><strong>Hora:</strong> {horaSel}</p>
                 <div className="mb-3">
-                  <label className="form-label">Fecha específica</label>
-                  <input
-                    type="date"
-                    className="form-control"
+                  <label className="form-label">Fecha</label>
+                  <select
+                    className="form-select"
                     value={fechaSel}
                     onChange={(e) => setFechaSel(e.target.value)}
-                  />
+                  >
+                    <option value="">Elige una fecha</option>
+                    {proximasFechas(diaSel).map((f) => (
+                      <option key={f.valor} value={f.valor}>
+                        {f.etiqueta}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="form-text">
+                    Solo se muestran los próximos {DIAS[diaSel]?.toLowerCase()}.
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">

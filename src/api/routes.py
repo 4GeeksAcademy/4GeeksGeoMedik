@@ -1,5 +1,5 @@
 from flask import request, jsonify, Blueprint, current_app
-from api.models import db, Client, Doctor, Appointment, Availability, Notification, HistoriaClinica
+from api.models import db, Client, Doctor, Appointment, Availability, Notification, HistoriaClinica, Review
 from api.utils import APIException
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -280,16 +280,25 @@ def create_appointment():
     time_obj = date_obj.time()
     day = date.weekday()
 
-    availability = Availability.query.filter_by(doctor_id=doctor.id, day=day).first()
-    if availability is None:
+    # Un medico puede tener varios tramos el mismo dia (manana y tarde),
+    # asi que hay que mirarlos todos y no solo el primero.
+    disponibilidades = Availability.query.filter_by(
+        doctor_id=doctor.id, day=day
+    ).all()
+    if not disponibilidades:
         return jsonify({"message": "Doctor not available on this day"}), 400
 
-    if not (availability.time_start <= time_obj <= availability.time_end):
+    dentro_de_horario = any(
+        a.time_start <= time_obj <= a.time_end for a in disponibilidades
+    )
+    if not dentro_de_horario:
         return jsonify({"message": "Appointment time not within doctor's availability"}), 400
 
+    # Solo choca si ya hay cita a ESA hora. Antes comparaba solo la fecha, asi
+    # que una sola cita bloqueaba el dia entero para todo el mundo.
     existing = Appointment.query.filter(
         Appointment.doctor_id == body["doctor_id"],
-        db.func.date(Appointment.date_time) == date,
+        Appointment.date_time == date_obj,
         Appointment.status.in_(["agendada", "pendiente", "confirmada"])
     ).first()
 
@@ -1253,4 +1262,128 @@ def get_historia_de_paciente(id):
     return jsonify({
         "historia": historia.serialize(),
         "completa": historia.completa,
+    }), 200
+
+
+@api.route("/doctors/me/availability", methods=["GET"])
+@jwt_required()
+def get_mi_disponibilidad():
+    """Los horarios crudos del doctor logueado, con su id para poder borrarlos.
+
+    El endpoint publico /doctors/<id>/availability existe para el paciente:
+    devuelve huecos libres por dia y sin ids, asi que no sirve para que el
+    medico gestione su propia agenda.
+    """
+    if get_jwt()["role"] != "doctor":
+        return jsonify({"message": "Solo los medicos tienen disponibilidad"}), 403
+
+    doctor_id = int(get_jwt_identity())
+
+    horarios = (
+        Availability.query.filter_by(doctor_id=doctor_id)
+        .order_by(Availability.day, Availability.time_start)
+        .all()
+    )
+
+    return jsonify({
+        "availabilities": [h.serialize() for h in horarios]
+    }), 200
+
+
+# =============================================================================
+#  RESENAS DE MEDICOS
+# =============================================================================
+
+
+def recalcular_media_doctor(doctor_id):
+    """Vuelve a calcular average_rating a partir de las resenas reales."""
+    media = (
+        db.session.query(db.func.avg(Review.rating))
+        .filter(Review.doctor_id == doctor_id)
+        .scalar()
+    )
+    doctor = Doctor.query.get(doctor_id)
+    if doctor is not None:
+        doctor.average_rating = round(float(media), 1) if media is not None else None
+
+
+@api.route("/appointments/<int:id>/review", methods=["POST"])
+@jwt_required()
+def crear_review(id):
+    """Solo el paciente de una cita ya completada puede valorarla."""
+    if get_jwt()["role"] != "client":
+        return jsonify({"message": "Solo los pacientes pueden dejar resenas"}), 403
+
+    client_id = int(get_jwt_identity())
+    appointment = Appointment.query.get(id)
+    if appointment is None:
+        return jsonify({"message": "Cita no encontrada"}), 404
+
+    if appointment.client_id != client_id:
+        return jsonify({"message": "Esta cita no es tuya"}), 403
+
+    if appointment.status != "completada":
+        return jsonify({
+            "message": "Solo puedes valorar una consulta que ya se ha completado"
+        }), 409
+
+    if Review.query.filter_by(appointment_id=id).first():
+        return jsonify({"message": "Ya valoraste esta consulta"}), 409
+
+    body = request.get_json(silent=True)
+    if not body:
+        return jsonify({"message": "Body is required"}), 400
+
+    try:
+        rating = int(body.get("rating"))
+    except (TypeError, ValueError):
+        return jsonify({"message": "La valoracion debe ser un numero del 1 al 5"}), 400
+
+    if not (1 <= rating <= 5):
+        return jsonify({"message": "La valoracion debe estar entre 1 y 5"}), 400
+
+    comentario = body.get("comentario")
+    comentario = str(comentario).strip()[:1000] if comentario else None
+
+    review = Review(
+        client_id=client_id,
+        doctor_id=appointment.doctor_id,
+        appointment_id=id,
+        rating=rating,
+        comentario=comentario,
+    )
+    db.session.add(review)
+
+    try:
+        db.session.flush()
+        recalcular_media_doctor(appointment.doctor_id)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "Ya valoraste esta consulta"}), 409
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("Error al guardar la resena")
+        return jsonify({"message": "No se pudo guardar la resena"}), 500
+
+    return jsonify({"message": "Gracias por tu valoracion", "review": review.serialize()}), 201
+
+
+@api.route("/doctors/<int:id>/reviews", methods=["GET"])
+def get_reviews_doctor(id):
+    """Resenas publicas de un medico, de la mas reciente a la mas antigua."""
+    doctor = Doctor.query.get(id)
+    if doctor is None:
+        return jsonify({"message": "Doctor no encontrado"}), 404
+
+    reviews = (
+        Review.query.filter_by(doctor_id=id)
+        .order_by(Review.fecha_creacion.desc())
+        .all()
+    )
+
+    return jsonify({
+        "reviews": [r.serialize() for r in reviews],
+        "total": len(reviews),
+        "media": doctor.average_rating,
     }), 200

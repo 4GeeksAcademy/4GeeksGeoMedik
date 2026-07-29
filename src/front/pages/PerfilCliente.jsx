@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AvatarPerfil } from "../components/AvatarPerfil";
+import { CampoPassword } from "../components/CampoPassword";
 import { HistorialCitas } from "./HistorialCitas";
 import { archivoAImagenBase64 } from "../utils/imagen";
 
@@ -560,27 +561,21 @@ export const PerfilCliente = () => {
                     <div className="row g-3">
                       <div className="col-md-4">
                         <label className="form-label fw-semibold small">Contrasena actual</label>
-                        <input
-                          type="password"
-                          className="form-control"
+                        <CampoPassword
                           value={passwords.actual}
                           onChange={(e) => setPasswords({ ...passwords, actual: e.target.value })}
                         />
                       </div>
                       <div className="col-md-4">
                         <label className="form-label fw-semibold small">Nueva contrasena</label>
-                        <input
-                          type="password"
-                          className="form-control"
+                        <CampoPassword
                           value={passwords.nueva}
                           onChange={(e) => setPasswords({ ...passwords, nueva: e.target.value })}
                         />
                       </div>
                       <div className="col-md-4">
                         <label className="form-label fw-semibold small">Repetir nueva</label>
-                        <input
-                          type="password"
-                          className="form-control"
+                        <CampoPassword
                           value={passwords.repetir}
                           onChange={(e) => setPasswords({ ...passwords, repetir: e.target.value })}
                         />
